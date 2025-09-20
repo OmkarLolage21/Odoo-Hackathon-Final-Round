@@ -1,9 +1,13 @@
 from fastapi import APIRouter
 
-from api.endpoints import auth
+from api.endpoints import auth, contacts
 
 # Create main API router
-api_router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1")
 
 # Include endpoint routers
-api_router.include_router(auth.router)
+router.include_router(auth.router)
+router.include_router(contacts.router)
+
+# Export the router
+__all__ = ["router"]

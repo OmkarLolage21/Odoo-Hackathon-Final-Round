@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -128,3 +128,20 @@ async def get_request_info(request: Request) -> dict:
         "method": request.method,
         "url": str(request.url),
     }
+
+
+async def get_current_user_with_role(
+    current_user: User = Depends(get_current_user),
+    role: str = Header(..., alias="X-User-Role")
+) -> User:
+    """
+    Gets the current user and verifies that the role passed in the header
+    matches the user's actual role from the JWT token.
+    """
+    # Assuming the 'role' attribute on the User model is an Enum
+    if current_user.role.value != role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Role in header does not match user's authenticated role."
+        )
+    return current_user

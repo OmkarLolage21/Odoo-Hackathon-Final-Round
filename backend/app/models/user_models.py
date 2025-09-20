@@ -48,6 +48,7 @@ class User(Base):
     # Relationships
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     refresh_tokens = relationship("AuthRefreshToken", back_populates="user", cascade="all, delete-orphan")
+    contact = relationship("Contact", back_populates="user", uselist=False)
 
 
 class UserProfile(Base):
