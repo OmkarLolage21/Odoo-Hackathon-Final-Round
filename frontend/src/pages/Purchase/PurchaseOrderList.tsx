@@ -1,45 +1,73 @@
-import { useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Table from '../../components/UI/Table';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
-import { usePurchase } from '../../contexts/PurchaseContext';
+import purchaseOrderService from '../../services/purchaseOrderService';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface PurchaseOrderRow {
-  id: string;
-  number: string;
-  vendor: string;
-  date: string;
-  total: number;
-  status: 'draft' | 'confirmed' | 'billed' | 'cancelled';
-}
+interface PurchaseOrderRow { id: string; po_number: string; vendor_name?: string | null; created_at: string; total_amount: number; status: string; }
 
 export default function PurchaseOrderList() {
-  const { purchaseOrders, computeTotals } = usePurchase();
-  const rows: PurchaseOrderRow[] = useMemo(() => purchaseOrders.map(po => {
-    const totals = computeTotals(po.lines);
-    return { id: po.id, number: po.number, vendor: po.vendor, date: po.date, total: totals.total, status: po.status };
-  }), [purchaseOrders, computeTotals]);
+  const { user } = useAuth();
+  const role = user?.role;
+  const [orders, setOrders] = useState<PurchaseOrderRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string|null>(null);
+
+  const fetchOrders = useCallback(() => {
+    if (!role) return;
+    setLoading(true);
+    purchaseOrderService.list(role)
+      .then(data => setOrders(data as any))
+      .catch(e => setError(e.message))
+      .finally(()=> setLoading(false));
+  }, [role]);
+
+  useEffect(()=> { fetchOrders(); }, [fetchOrders]);
+
+  const handleDelete = async (id: string) => {
+    if (!role) return;
+    if (!confirm('Delete this Purchase Order?')) return;
+    try {
+      await purchaseOrderService.delete(id, role);
+      setOrders(o => o.filter(x => x.id !== id));
+    } catch (e:any) { setError(e.message || 'Delete failed'); }
+  };
+
+  const rows = useMemo(() => orders.map(o => ({
+    id: o.id,
+    number: o.po_number,
+    vendor: o.vendor_name || '-',
+    date: new Date(o.created_at).toLocaleDateString(),
+    total: o.total_amount,
+    status: o.status || 'draft'
+  })), [orders]);
 
   const columns = [
     { key: 'number', label: 'PO No', sortable: true },
     { key: 'vendor', label: 'Vendor', sortable: true },
     { key: 'date', label: 'PO Date' },
-    { key: 'total', label: 'Total', render: (v: number) => `₹${v.toLocaleString()}` },
+    { key: 'total', label: 'Total', render: (v: number) => `₹${v?.toLocaleString?.() ?? v}` },
     { key: 'status', label: 'Status', render: (v: string) => {
       const cls = v === 'draft'
         ? 'bg-gray-100 text-gray-700'
         : v === 'confirmed'
           ? 'bg-indigo-100 text-indigo-700'
-          : v === 'billed'
-            ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700';
+          : v === 'cancelled'
+            ? 'bg-red-100 text-red-700'
+            : 'bg-green-100 text-green-700';
       return <span className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${cls}`}>{v}</span>;
     }},
-    { key: 'actions', label: 'Actions', render: (_: any, r: PurchaseOrderRow) => (
-      <Link to={`/purchase-orders/${r.id}/edit`} className="text-brand-600 hover:text-brand-500 text-sm font-medium">Open</Link>
-    )}
+    { key: 'actions', label: 'Actions', render: (_: any, r: any) => (
+      <div className="flex items-center space-x-3">
+        <Link to={`/purchase-orders/${r.id}/edit`} className="text-brand-600 hover:text-brand-500 text-sm font-medium">Edit</Link>
+        {role === 'admin' && (
+          <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:text-red-500 text-sm font-medium">Delete</button>
+        )}
+      </div>
+    ) }
   ];
 
   return (
@@ -50,8 +78,9 @@ export default function PurchaseOrderList() {
           <Button size="sm"><PlusIcon className="w-5 h-5 mr-2" />New</Button>
         </Link>
       </div>
+      {error && <div className="text-sm text-red-600">{error}</div>}
       <Card>
-        <Table columns={columns} data={rows} />
+        <Table columns={columns as any} data={rows} isLoading={loading} />
       </Card>
     </div>
   );

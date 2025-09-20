@@ -4,3 +4,5 @@ __pycache__/
 venv/
 .env.*
 myenv
+migrations/*
+alembic/*

@@ -26,6 +26,7 @@ import BillPaymentForm from './pages/Purchase/BillPaymentForm';
 import PaymentList from './pages/Purchase/PaymentList';
 import SalesOrderList from './pages/Sales/SalesOrderList';
 import SalesOrderForm from './pages/Sales/SalesOrderForm';
+import SalesOrderEdit from './pages/Sales/SalesOrderEdit';
 import CustomerInvoiceList from './pages/Sales/CustomerInvoiceList';
 import CustomerInvoiceForm from './pages/Sales/CustomerInvoiceForm';
 import ReceiptForm from './pages/Sales/ReceiptForm';
@@ -100,7 +101,7 @@ function AppContent() {
                     {/* Sales */}
                     <Route path="sales-orders" element={<SalesOrderList />} />
                     <Route path="sales-orders/new" element={<SalesOrderForm />} />
-                    <Route path="sales-orders/:id/edit" element={<SalesOrderForm />} />
+                    <Route path="sales-orders/:id/edit" element={<SalesOrderEdit />} />
                     <Route path="customer-invoices" element={<CustomerInvoiceList />} />
                     <Route path="customer-invoices/new" element={<CustomerInvoiceForm />} />
                     <Route path="customer-invoices/:id/edit" element={<CustomerInvoiceForm />} />

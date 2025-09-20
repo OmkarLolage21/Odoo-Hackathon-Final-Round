@@ -221,3 +221,80 @@ export interface AccountUpdateRequest {
   type?: 'asset' | 'liability' | 'expense' | 'income' | 'equity';
   parent_id?: string | null;
 }
+
+// =====================
+// Sales Orders
+// =====================
+
+export interface SalesOrderLineInput {
+  product_name: string; // entering by product name per requirement
+  quantity: number;
+  unit_price: number;
+}
+
+export interface SalesOrderLine extends SalesOrderLineInput {
+  id: string;
+  product_id: string;
+  tax_percent: number;
+  untaxed_amount: number;
+  tax_amount: number;
+  total_amount: number;
+}
+
+export interface SalesOrderCreateRequest {
+  lines: SalesOrderLineInput[];
+}
+
+export interface SalesOrderUpdateRequest {
+  status?: 'draft' | 'confirmed' | 'cancelled';
+  lines?: SalesOrderLineInput[]; // full replacement
+}
+
+export interface SalesOrderResponse {
+  id: string;
+  so_number: string;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  total_untaxed: number;
+  total_tax: number;
+  total_amount: number;
+  created_at: string;
+  updated_at: string;
+  lines: SalesOrderLine[];
+}
+
+// =====================
+// Purchase Orders (API-backed new implementation)
+// =====================
+
+export interface PurchaseOrderLineInput {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+}
+
+export interface PurchaseOrderLine extends PurchaseOrderLineInput {
+  id: string;
+  product_id: string;
+  tax_percent: number;
+  untaxed_amount: number;
+  tax_amount: number;
+  total_amount: number;
+}
+
+export interface PurchaseOrderCreateRequest {
+  vendor_name?: string | null;
+  lines: PurchaseOrderLineInput[];
+}
+
+export interface PurchaseOrderResponse {
+  id: string;
+  po_number: string;
+  vendor_name?: string | null;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  total_untaxed: number;
+  total_tax: number;
+  total_amount: number;
+  created_at: string;
+  updated_at: string;
+  lines: PurchaseOrderLine[];
+}
