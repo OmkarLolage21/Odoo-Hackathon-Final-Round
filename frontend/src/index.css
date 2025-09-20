@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --color-brand: theme('colors.brand.600');
+    }
+
+    body {
+        @apply text-gray-900 bg-gray-50 font-sans;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply tracking-tight text-gray-900;
+    }
+
+    a {
+        @apply text-brand-600 hover:text-brand-500;
+    }
+}
+
+@layer components {
+    .btn-brand-gradient {
+        @apply bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white;
+    }
+
+    .focus-brand {
+        @apply focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+    }
+}
