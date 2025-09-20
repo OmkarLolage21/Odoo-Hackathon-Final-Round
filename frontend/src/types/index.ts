@@ -200,3 +200,24 @@ export interface Payment {
   reference: string;
   status: 'draft' | 'posted' | 'cancelled';
 }
+
+export interface AccountResponse {
+  id: string;
+  name: string;
+  type: 'asset' | 'liability' | 'expense' | 'income' | 'equity';
+  parent_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AccountCreateRequest {
+  name: string;
+  type: 'asset' | 'liability' | 'expense' | 'income' | 'equity';
+  parent_id?: string | null;
+}
+
+export interface AccountUpdateRequest {
+  name?: string;
+  type?: 'asset' | 'liability' | 'expense' | 'income' | 'equity';
+  parent_id?: string | null;
+}
