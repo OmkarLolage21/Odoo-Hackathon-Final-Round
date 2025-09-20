@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from api.router import api_router
+from api.router import router as api_router  # This imports the router from api/router.py
 from config.settings import settings
 from core.database import create_tables
 
