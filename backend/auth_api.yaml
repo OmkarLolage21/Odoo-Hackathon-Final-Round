@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Odoo Hackathon API
   version: 1.0.0
-  description: API documentation for authentication and contact management system.
+  description: API documentation for authentication, contact management, and tax management system.
 servers:
   - url: http://localhost:8000
     description: Local server
@@ -574,6 +574,265 @@ components:
           maxLength: 128
         confirm_password:
           type: string
+    TaxCreate:
+      type: object
+      required:
+        - name
+        - computation_method
+        - value
+      properties:
+        name:
+          type: string
+          description: Name of the tax
+        computation_method:
+          type: string
+          enum: [percentage, fixed]
+          description: How the tax is computed
+        value:
+          type: number
+          format: float
+          description: Tax rate percentage or fixed amount
+        is_applicable_on_sales:
+          type: boolean
+          default: true
+          description: Whether this tax applies to sales
+        is_applicable_on_purchase:
+          type: boolean
+          default: true
+          description: Whether this tax applies to purchases
+
+    TaxUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the tax
+        computation_method:
+          type: string
+          enum: [percentage, fixed]
+          description: How the tax is computed
+        value:
+          type: number
+          format: float
+          description: Tax rate percentage or fixed amount
+        is_applicable_on_sales:
+          type: boolean
+          description: Whether this tax applies to sales
+        is_applicable_on_purchase:
+          type: boolean
+          description: Whether this tax applies to purchases
+
+    TaxResponse:
+      allOf:
+        - $ref: '#/components/schemas/api/v1/taxes:
+    post:
+      summary: Create a new tax
+      tags: [Taxes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+          required: true
+          description: User role for authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxCreate'
+            example:
+              name: "GST"
+              computation_method: "percentage"
+              value: 18.0
+              is_applicable_on_sales: true
+              is_applicable_on_purchase: true
+      responses:
+        '201':
+          description: Tax created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxResponse'
+        '403':
+          description: Insufficient permissions or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+    
+    get:
+      summary: Get all taxes
+      tags: [Taxes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+          required: true
+          description: User role for authorization
+      responses:
+        '200':
+          description: List of taxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaxResponse'
+        '403':
+          description: Insufficient permissions or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/taxes/{tax_id}:
+    parameters:
+      - name: tax_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: The ID of the tax to operate on
+    
+    get:
+      summary: Get a specific tax by ID
+      tags: [Taxes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+          required: true
+          description: User role for authorization
+      responses:
+        '200':
+          description: Tax details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxResponse'
+        '403':
+          description: Insufficient permissions or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tax not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Update a tax
+      tags: [Taxes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin]
+          required: true
+          description: User role for authorization (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxUpdate'
+            example:
+              name: "Updated GST"
+              value: 12.0
+              is_applicable_on_sales: true
+      responses:
+        '200':
+          description: Tax updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxResponse'
+        '403':
+          description: Insufficient permissions or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tax not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+    
+    delete:
+      summary: Delete a tax
+      tags: [Taxes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin]
+          required: true
+          description: User role for authorization (admin only)
+      responses:
+        '204':
+          description: Tax deleted successfully
+        '403':
+          description: Insufficient permissions or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tax not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'Create'
+        - type: object
+          required:
+            - id
+            - created_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Unique identifier for the tax
+            created_at:
+              type: string
+              format: date-time
+              description: When the tax was created
+
     UserSession:
       type: object
       properties:
@@ -587,7 +846,7 @@ components:
           type: string
           nullable: true
         is_active:
-          type: boolean
+          # type: boolean
         expires_at:
           type: string
           format: date-time
