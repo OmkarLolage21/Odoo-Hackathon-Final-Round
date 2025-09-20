@@ -77,3 +77,110 @@ class HSNItem(BaseModel):
 
 class HSNResponse(BaseModel):
     data: list[HSNItem]
+
+
+# =============================
+# Sales Order Schemas
+# =============================
+
+class SalesOrderLineBase(BaseModel):
+    product_name: str  # kept for display
+    quantity: int
+    unit_price: float
+    product_id: UUID | None = None  # new optional explicit product reference
+
+
+class SalesOrderLineCreate(SalesOrderLineBase):
+    product_id: UUID | None = None
+
+
+class SalesOrderLineResponse(SalesOrderLineBase):
+    id: UUID
+    product_id: UUID
+    tax_percent: float
+    untaxed_amount: float
+    tax_amount: float
+    total_amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class SalesOrderBase(BaseModel):
+    status: str | None = None  # defaults to draft server-side
+
+
+class SalesOrderCreate(SalesOrderBase):
+    lines: list[SalesOrderLineCreate]
+
+class SalesOrderUpdate(SalesOrderBase):
+    # Optional replacement of all lines; if provided, existing lines are replaced
+    lines: list[SalesOrderLineCreate] | None = None
+
+
+class SalesOrderResponse(SalesOrderBase):
+    id: UUID
+    so_number: str
+    total_untaxed: float
+    total_tax: float
+    total_amount: float
+    created_at: datetime
+    updated_at: datetime
+    lines: list[SalesOrderLineResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+# =============================
+# Purchase Order Schemas
+# =============================
+
+class PurchaseOrderLineBase(BaseModel):
+    product_name: str
+    quantity: int
+    unit_price: float
+    product_id: UUID | None = None
+
+
+class PurchaseOrderLineCreate(PurchaseOrderLineBase):
+    product_id: UUID | None = None
+
+
+class PurchaseOrderLineResponse(PurchaseOrderLineBase):
+    id: UUID
+    product_id: UUID
+    tax_percent: float
+    untaxed_amount: float
+    tax_amount: float
+    total_amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class PurchaseOrderBase(BaseModel):
+    status: str | None = None
+    vendor_name: str | None = None
+
+
+class PurchaseOrderCreate(PurchaseOrderBase):
+    lines: list[PurchaseOrderLineCreate]
+
+class PurchaseOrderUpdate(PurchaseOrderBase):
+    lines: list[PurchaseOrderLineCreate] | None = None
+
+
+class PurchaseOrderResponse(PurchaseOrderBase):
+    id: UUID
+    po_number: str
+    vendor_name: str | None = None
+    total_untaxed: float
+    total_tax: float
+    total_amount: float
+    created_at: datetime
+    updated_at: datetime
+    lines: list[PurchaseOrderLineResponse] = []
+
+    class Config:
+        from_attributes = True

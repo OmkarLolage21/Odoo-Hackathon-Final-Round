@@ -75,3 +75,101 @@ class Product(Base):
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+# ==========================
+# Sales Order models
+# ==========================
+
+class SalesOrderStatus(str, enum.Enum):
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+
+
+class SalesOrder(Base):
+    __tablename__ = "sales_orders"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    # business-visible number (uuid string for now per requirement)
+    so_number: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Enum('draft', 'confirmed', 'cancelled', name='sales_order_status'),
+        nullable=False, server_default='draft'
+    )
+    total_untaxed: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_tax: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    lines: Mapped[list["SalesOrderLine"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", lazy='selectin'
+    )
+
+
+class SalesOrderLine(Base):
+    __tablename__ = "sales_order_lines"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    sales_order_id: Mapped[UUID] = mapped_column(ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    product_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
+    untaxed_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    tax_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    order: Mapped[SalesOrder] = relationship(back_populates="lines")
+
+
+# ==========================
+# Purchase Order models
+# ==========================
+
+class PurchaseOrderStatus(str, enum.Enum):
+    DRAFT = "draft"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    po_number: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(
+        Enum('draft', 'confirmed', 'cancelled', name='purchase_order_status'),
+        nullable=False, server_default='draft'
+    )
+    total_untaxed: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_tax: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    lines: Mapped[list["PurchaseOrderLine"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", lazy='selectin'
+    )
+
+
+class PurchaseOrderLine(Base):
+    __tablename__ = "purchase_order_lines"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    purchase_order_id: Mapped[UUID] = mapped_column(ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    product_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
+    untaxed_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    tax_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
