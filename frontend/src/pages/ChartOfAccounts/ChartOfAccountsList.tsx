@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChartOfAccount } from '../../types';
 import Card from '../../components/UI/Card';
@@ -8,71 +8,55 @@ import Table from '../../components/UI/Table';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { canCreateMasterData, canEditMasterData, canDeleteMasterData } from '../../utils/rolePermissions';
+import accountService from '../../services/accountService';
 
-// Mock data
-const mockAccounts: ChartOfAccount[] = [
-  {
-    id: '1',
-    name: 'Bank A/c',
-    type: 'asset',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '2',
-    name: 'Purchase Expense A/c',
-    type: 'expense',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '3',
-    name: 'Debtors A/c',
-    type: 'asset',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '4',
-    name: 'Creditors A/c',
-    type: 'liability',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '5',
-    name: 'Sales Income A/c',
-    type: 'income',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '6',
-    name: 'Cash A/c',
-    type: 'asset',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '7',
-    name: 'Other Expense A/c',
-    type: 'expense',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-];
+interface AccountUI extends ChartOfAccount {}
 
 export default function ChartOfAccountsList() {
   const { user } = useAuth();
-  const [accounts] = useState<ChartOfAccount[]>(mockAccounts);
+  const role = user?.role;
+  const [accounts, setAccounts] = useState<AccountUI[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const canView = role !== 'contact';
+
+  useEffect(() => {
+    if (!canView) return;
+    let active = true;
+    setLoading(true);
+    accountService.list(role)
+      .then(data => { if (active) setAccounts(data as any); })
+      .catch(e => { if (active) setError(e.message); })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [role, canView]);
 
   const filteredAccounts = accounts.filter(account => {
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !filterType || account.type === filterType;
     return matchesSearch && matchesType;
   });
+
+  const deleteAccount = async (id: string) => {
+    if (!role) return;
+    const target = accounts.find(a => a.id === id);
+    const nameRef = target?.name || 'this account';
+    if (!window.confirm(`Delete ${nameRef}? This action cannot be undone.`)) return;
+    setError(null);
+    setDeletingId(id);
+    try {
+      await accountService.remove(id, role);
+      setAccounts(prev => prev.filter(a => a.id !== id));
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete account');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const columns = useMemo(() => [
     { key: 'name', label: 'Account Name', sortable: true },
@@ -105,14 +89,22 @@ export default function ChartOfAccountsList() {
             </Link>
           )}
           {canDeleteMasterData(user?.role) && (
-            <button className="text-red-600 hover:text-red-900 text-sm font-medium">
-              Delete
+            <button
+              onClick={() => deleteAccount(account.id)}
+              disabled={deletingId === account.id}
+              className={`text-sm font-medium ${deletingId === account.id ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}`}
+            >
+              {deletingId === account.id ? 'Deleting...' : 'Delete'}
             </button>
           )}
         </div>
       )
     } : null
-  ], [user]);
+  ], [user, deletingId, accounts, role]);
+
+  if (!canView) {
+    return <div className="p-4 text-red-600">Not authorized to view Chart of Accounts.</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -186,7 +178,9 @@ export default function ChartOfAccountsList() {
       </div>
 
       {/* Table */}
+      {error && <div className="text-sm text-red-600">{error}</div>}
       <Table
+        isLoading={loading}
         columns={columns.filter(Boolean) as any}
         data={filteredAccounts}
       />

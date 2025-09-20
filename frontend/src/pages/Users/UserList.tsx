@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { User } from '../../types';
 import Card from '../../components/UI/Card';
@@ -8,42 +8,37 @@ import Table from '../../components/UI/Table';
 import { PlusIcon, MagnifyingGlassIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { visibleUserActions } from '../../utils/rolePermissions';
-
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@shivfurniture.com',
-    role: 'admin'
-  },
-  {
-    id: '2',
-    name: 'Accountant',
-    email: 'accountant@shivfurniture.com',
-    role: 'invoicing_user'
-  },
-  {
-    id: '3',
-    name: 'Nimesh Pathak',
-    email: 'nimesh@example.com',
-    role: 'contact'
-  }
-];
+import { userService } from '../../services/userService';
 
 export default function UserList() {
   const { user } = useAuth();
-  const [users] = useState<User[]>(mockUsers);
+  const role = user?.role;
+  const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('');
-  // Role-based visibility: contact sees only self; invoicing_user & admin see all
-  const roleFiltered = useMemo(() => {
-    if (!user) return [];
-    if (user.role === 'contact') {
-      return users.filter(u => u.email === user.email);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isAdmin = role === 'admin';
+
+  useEffect(() => {
+    if (!role) return; // no auth yet
+    let active = true;
+    setLoading(true);
+    if (isAdmin) {
+      userService.list(role)
+        .then(data => { if (active) setUsers(data); })
+        .catch(e => { if (active) setError(e.message); })
+        .finally(() => active && setLoading(false));
+    } else if (user) {
+      // Non-admin: just show self
+      setUsers([user as User]);
+      setLoading(false);
     }
-    return users;
-  }, [user, users]);
+    return () => { active = false; };
+  }, [role, isAdmin, user]);
+
+  const roleFiltered = useMemo(() => users, [users]);
 
   const filteredUsers = roleFiltered.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -109,7 +104,7 @@ export default function UserList() {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600">Manage system users and their roles</p>
         </div>
-        {(user?.role === 'admin' || user?.role === 'invoicing_user') && (
+        {(user?.role === 'admin') && (
           <Link to="/users/new">
             <Button>
               <PlusIcon className="w-5 h-5 mr-2" />
@@ -132,7 +127,7 @@ export default function UserList() {
             />
           </div>
           
-          {(user?.role === 'admin' || user?.role === 'invoicing_user') && (
+          {(user?.role === 'admin') && (
             <select
               aria-label="Filter by role"
               value={filterRole}
@@ -153,7 +148,8 @@ export default function UserList() {
       </Card>
 
       {/* Table */}
-      <Table columns={columns.filter(Boolean) as any} data={filteredUsers} />
+      {error && <div className="text-sm text-red-600">{error}</div>}
+      <Table isLoading={loading} columns={columns.filter(Boolean) as any} data={filteredUsers} />
     </div>
   );
 }

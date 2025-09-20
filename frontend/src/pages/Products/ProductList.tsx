@@ -1,63 +1,51 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Product } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Input from '../../components/UI/Input';
 import Table from '../../components/UI/Table';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '../../contexts/AuthContext';
 import { canCreateMasterData, canEditMasterData, canDeleteMasterData } from '../../utils/rolePermissions';
+import productService from '../../services/productService';
 
-// Mock data
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Executive Office Chair',
-    type: 'goods',
-    salesPrice: 25000,
-    purchasePrice: 18000,
-    saleTaxPercent: 18,
-    purchaseTaxPercent: 18,
-    hsnCode: '9401',
-    category: 'Furniture',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '2',
-    name: 'Wooden Conference Table',
-    type: 'goods',
-    salesPrice: 45000,
-    purchasePrice: 32000,
-    saleTaxPercent: 18,
-    purchaseTaxPercent: 18,
-    hsnCode: '9403',
-    category: 'Furniture',
-    createdAt: new Date('2025-01-02'),
-    updatedAt: new Date('2025-01-02')
-  },
-  {
-    id: '3',
-    name: 'Installation Service',
-    type: 'service',
-    salesPrice: 5000,
-    purchasePrice: 3500,
-    saleTaxPercent: 18,
-    purchaseTaxPercent: 18,
-    hsnCode: '9954',
-    category: 'Services',
-    createdAt: new Date('2025-01-03'),
-    updatedAt: new Date('2025-01-03')
-  },
-];
+interface ProductUI {
+  id: string;
+  name: string;
+  type: 'goods' | 'service';
+  salesPrice: number;
+  purchasePrice: number;
+  hsnCode: string;
+  category: string;
+  taxName?: string;
+  salesTaxPercent?: number;
+  purchaseTaxPercent?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export default function ProductList() {
   const { user } = useAuth();
-  const [products] = useState<Product[]>(mockProducts);
+  const role = user?.role;
+  const [products, setProducts] = useState<ProductUI[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canView = role !== 'contact';
+
+  useEffect(() => {
+    if (!canView) return;
+    let active = true;
+    setLoading(true);
+    productService.list(role)
+      .then(data => { if (active) setProducts(data as any); })
+      .catch(e => { if (active) setError(e.message); })
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [role, canView]);
 
   const categories = Array.from(new Set(products.map(p => p.category)));
 
@@ -94,15 +82,13 @@ export default function ProductList() {
       render: (value: number) => `₹${value.toLocaleString()}`
     },
     { key: 'hsnCode', label: 'HSN Code' },
-    { 
-      key: 'saleTaxPercent', 
-      label: 'Tax %',
-      render: (value: number) => `${value}%`
-    },
+    { key: 'taxName', label: 'Tax Name', render: (v?: string) => v || '-' },
+    { key: 'salesTaxPercent', label: 'Sales Tax %', render: (v?: number) => v != null ? `${v}%` : '-' },
+    { key: 'purchaseTaxPercent', label: 'Purchase Tax %', render: (v?: number) => v != null ? `${v}%` : '-' },
     (canEditMasterData(user?.role) || canDeleteMasterData(user?.role)) ? {
       key: 'actions',
       label: 'Actions',
-      render: (_: any, product: Product) => (
+      render: (_: any, product: ProductUI) => (
         <div className="flex space-x-2">
           {canEditMasterData(user?.role) && (
             <Link
@@ -113,7 +99,18 @@ export default function ProductList() {
             </Link>
           )}
           {canDeleteMasterData(user?.role) && (
-            <button className="text-red-600 hover:text-red-900 text-sm font-medium">
+            <button
+              onClick={async () => {
+                if (!window.confirm('Delete this product?')) return;
+                try {
+                  await productService.remove(product.id, role);
+                  setProducts(prev => prev.filter(p => p.id !== product.id));
+                } catch (e: any) {
+                  alert(e.message);
+                }
+              }}
+              className="text-red-600 hover:text-red-900 text-sm font-medium"
+            >
               Delete
             </button>
           )}
@@ -121,6 +118,10 @@ export default function ProductList() {
       )
     } : null
   ], [user]);
+
+  if (!canView) {
+    return <div className="p-4 text-red-600">Not authorized to view products.</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -225,7 +226,11 @@ export default function ProductList() {
       </div>
 
       {/* Table */}
+      {error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
       <Table
+        isLoading={loading}
         columns={columns.filter(Boolean) as any}
         data={filteredProducts}
       />

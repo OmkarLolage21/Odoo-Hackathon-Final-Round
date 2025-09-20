@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
@@ -6,22 +6,22 @@ import Input from '../../components/UI/Input';
 import Select from '../../components/UI/Select';
 import ActionBar from '../../components/UI/ActionBar';
 import { useAuth } from '../../contexts/AuthContext';
-import { canCreateMasterData, canEditMasterData } from '../../utils/rolePermissions';
+import { canCreateMasterData, canEditMasterData, normalizeRole } from '../../utils/rolePermissions';
+import taxService, { TaxCreate, TaxUpdate } from '../../services/taxService';
 
 export default function TaxForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const { user } = useAuth();
+  const normalized = normalizeRole(user?.role || undefined);
   const canEdit = canEditMasterData(user?.role);
   const canCreate = canCreateMasterData(user?.role);
 
-  if (user?.role === 'contact') {
+  if (normalized === 'contact') {
     return <Navigate to="/taxes" replace />;
   }
-  if (user?.role === 'invoicing_user' && isEdit) {
-    return <Navigate to="/taxes" replace />;
-  }
+  // Invoicing user can view list but should not create/update; show read-only form if editing existing later.
 
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +31,27 @@ export default function TaxForm() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const readOnly = normalized === 'invoicing_user' && isEdit; // view mode
+
+  useEffect(() => {
+    let ignore = false;
+    if (isEdit && id) {
+      setLoadingExisting(true);
+      taxService.get(id, user?.role).then(tax => {
+        if (ignore) return;
+        setFormData({
+          name: tax.name,
+            computation_method: tax.computation_method,
+            value: String(tax.value),
+            applicableOn: tax.is_applicable_on_sales && tax.is_applicable_on_purchase ? 'both' : tax.is_applicable_on_sales ? 'sales' : 'purchase'
+        });
+      }).catch(err => {
+        console.error('Failed loading tax', err);
+      }).finally(()=>!ignore && setLoadingExisting(false));
+    }
+    return () => { ignore = true; };
+  }, [isEdit, id, user]);
 
   const computationOptions = [
     { value: 'percentage', label: '% (Percentage)' },
@@ -80,12 +101,16 @@ export default function TaxForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return; // guard
     if (!validateForm()) return;
     const payload = buildPayload();
     setIsLoading(true);
     try {
-      console.log('Submitting tax payload', payload);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (isEdit && id) {
+        await taxService.update(id, payload as TaxUpdate, user?.role);
+      } else {
+        await taxService.create(payload as TaxCreate, user?.role);
+      }
       navigate('/taxes');
     } catch (error) {
       console.error('Error saving tax:', error);
@@ -127,6 +152,7 @@ export default function TaxForm() {
               onChange={(e) => handleChange('name', e.target.value)}
               error={errors.name}
               placeholder="e.g., GST 18%"
+              disabled={readOnly}
             />
 
             <Select
@@ -137,6 +163,7 @@ export default function TaxForm() {
               onChange={(e) => handleChange('computation_method', e.target.value)}
               error={errors.computation_method}
               placeholder="Select computation method"
+              disabled={readOnly}
             />
 
             <Input
@@ -148,6 +175,7 @@ export default function TaxForm() {
               error={errors.value}
               placeholder={formData.computation_method === 'percentage' ? '18' : '100'}
               helperText={formData.computation_method === 'percentage' ? 'Enter percentage (0-100)' : 'Enter fixed amount'}
+              disabled={readOnly}
             />
 
             <div className="space-y-1">
@@ -164,6 +192,7 @@ export default function TaxForm() {
                       checked={formData.applicableOn === option.value}
                       onChange={(e) => handleChange('applicableOn', e.target.value)}
                       className="mr-2 text-purple-600 focus:ring-purple-500"
+                      disabled={readOnly}
                     />
                     {option.label}
                   </label>
@@ -178,12 +207,13 @@ export default function TaxForm() {
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <Button type="button" variant="secondary" onClick={() => navigate('/taxes')}>Back</Button>
-            {((isEdit && canEdit) || (!isEdit && canCreate)) && (
+            {readOnly ? null : ((isEdit && canEdit) || (!isEdit && canCreate)) && (
               <Button type="submit" isLoading={isLoading}>{isEdit ? 'Confirm Changes' : 'Confirm'}</Button>
             )}
           </div>
         </form>
       </Card>
+      {loadingExisting && <div className="text-sm text-gray-500">Loading tax...</div>}
     </div>
   );
 }

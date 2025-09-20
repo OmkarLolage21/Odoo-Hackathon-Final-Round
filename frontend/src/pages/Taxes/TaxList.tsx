@@ -1,56 +1,73 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Tax } from '../../types';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Input from '../../components/UI/Input';
 import Table from '../../components/UI/Table';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
-import { canCreateMasterData, canEditMasterData, canDeleteMasterData } from '../../utils/rolePermissions';
+import { canCreateMasterData, canEditMasterData, canDeleteMasterData, normalizeRole } from '../../utils/rolePermissions';
+import taxService, { TaxResponse } from '../../services/taxService';
 
-// Mock data
-const mockTaxes: Tax[] = [
-  {
-    id: '1',
-    name: 'GST 5%',
-    computationMethod: 'percentage',
-    rate: 5,
-    applicableOn: 'both',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '2',
-    name: 'GST 18%',
-    computationMethod: 'percentage',
-    rate: 18,
-    applicableOn: 'both',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '3',
-    name: 'Service Charge',
-    computationMethod: 'fixed',
-    rate: 100,
-    applicableOn: 'sales',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-];
+interface UITaxRow {
+  id: string;
+  name: string;
+  computationMethod: 'percentage' | 'fixed';
+  rate: number;
+  applicableOn: 'sales' | 'purchase' | 'both';
+}
 
 export default function TaxList() {
   const { user } = useAuth();
-  const [taxes] = useState<Tax[]>(mockTaxes);
+  const role = normalizeRole(user?.role || undefined);
+  const [taxes, setTaxes] = useState<UITaxRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMethod, setFilterMethod] = useState<string>('');
+
+  useEffect(() => {
+    if (!user || role === 'contact') return; // contact users blocked entirely
+    let ignore = false;
+    const load = async () => {
+      setLoading(true); setError(null);
+      try {
+        const data = await taxService.list(user.role);
+        if (ignore) return;
+        const mapped: UITaxRow[] = data.map((t: TaxResponse) => ({
+          id: t.id,
+          name: t.name,
+          computationMethod: t.computation_method,
+          rate: t.value,
+          applicableOn: t.is_applicable_on_sales && t.is_applicable_on_purchase ? 'both' : t.is_applicable_on_sales ? 'sales' : 'purchase'
+        }));
+        setTaxes(mapped);
+      } catch (e: any) {
+        setError(e.message || 'Failed to load taxes');
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    load();
+    return () => { ignore = true; };
+  }, [user, role]);
 
   const filteredTaxes = taxes.filter(tax => {
     const matchesSearch = tax.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMethod = !filterMethod || tax.computationMethod === filterMethod;
     return matchesSearch && matchesMethod;
   });
+
+  const handleDelete = async (taxId: string) => {
+    if (!user) return;
+    if (!confirm('Delete this tax? This action cannot be undone.')) return;
+    try {
+      await taxService.remove(taxId, user.role);
+      setTaxes(prev => prev.filter(t => t.id !== taxId));
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete');
+    }
+  };
 
   const columns = useMemo(() => [
     { key: 'name', label: 'Tax Name', sortable: true },
@@ -68,7 +85,7 @@ export default function TaxList() {
     { 
       key: 'rate', 
       label: 'Rate',
-      render: (value: number, tax: Tax) => 
+      render: (value: number, tax: UITaxRow) => 
         tax.computationMethod === 'percentage' ? `${value}%` : `₹${value}`
     },
     { 
@@ -87,7 +104,7 @@ export default function TaxList() {
     (canEditMasterData(user?.role) || canDeleteMasterData(user?.role)) ? {
       key: 'actions',
       label: 'Actions',
-      render: (_: any, tax: Tax) => (
+      render: (_: any, tax: UITaxRow) => (
         <div className="flex space-x-2">
           {canEditMasterData(user?.role) && (
             <Link
@@ -98,7 +115,7 @@ export default function TaxList() {
             </Link>
           )}
           {canDeleteMasterData(user?.role) && (
-            <button className="text-red-600 hover:text-red-900 text-sm font-medium">
+            <button onClick={() => handleDelete(tax.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">
               Delete
             </button>
           )}
@@ -106,6 +123,16 @@ export default function TaxList() {
       )
     } : null
   ], [user]);
+
+  if (role === 'contact') {
+    return (
+      <div className="p-6">
+        <Card>
+          <div className="text-sm text-gray-600">You are not authorized to view Taxes.</div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -156,10 +183,15 @@ export default function TaxList() {
       </Card>
 
       {/* Table */}
+      {error && <div className="text-sm text-red-600">{error}</div>}
       <Table
         columns={columns.filter(Boolean) as any}
         data={filteredTaxes}
+        isLoading={loading}
       />
+      {!loading && filteredTaxes.length === 0 && !error && (
+        <div className="text-center text-sm text-gray-500 -mt-4">No taxes found</div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Table from '../../components/UI/Table';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
+import { usePurchase } from '../../contexts/PurchaseContext';
 
-interface BillRow { id: string; number: string; po: string; vendor: string; date: string; total: number; status: 'draft' | 'posted' | 'paid'; }
-
-const mockBills: BillRow[] = [
-  { id: '1', number: 'BIL/2025/0001', po: 'PO/2025/0001', vendor: 'Azure Interior', date: '2025-09-17', total: 15705, status: 'posted' },
-];
+interface BillRow { id: string; number: string; po: string; vendor: string; date: string; total: number; status: 'draft' | 'posted' | 'paid' | 'cancelled'; }
 
 export default function VendorBillList() {
-  const [rows] = useState(mockBills);
+  const { vendorBills, computeTotals } = usePurchase();
+  const rows: BillRow[] = useMemo(() => vendorBills.map(b => {
+    const totals = computeTotals(b.lines);
+    return { id: b.id, number: b.number, po: b.poId ? b.poId : '-', vendor: b.vendor, date: b.date, total: totals.total, status: b.status };
+  }), [vendorBills, computeTotals]);
   const columns = [
     { key: 'number', label: 'Bill No' },
     { key: 'po', label: 'PO Ref' },
