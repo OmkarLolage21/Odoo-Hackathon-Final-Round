@@ -1,0 +1,327 @@
+openapi: 3.0.3
+info:
+  title: Odoo Hackathon Auth API
+  version: 1.0.0
+  description: JWT authentication service with registration, login, refresh, logout, sessions, and profile.
+servers:
+  - url: http://localhost:8000
+    description: Local server
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+            examples:
+              default:
+                value:
+                  email: admin@example.com
+                  password: StrongPass#123
+                  username: admin
+                  full_name: System Admin
+                  role: admin
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+  /api/v1/auth/login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            examples:
+              default:
+                value:
+                  email: admin@example.com
+                  password: StrongPass#123
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+            examples:
+              default:
+                value:
+                  refresh_token: <REFRESH_TOKEN>
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid or expired refresh token
+  /api/v1/auth/logout:
+    post:
+      summary: Logout by revoking a refresh token
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+            examples:
+              default:
+                value:
+                  refresh_token: <REFRESH_TOKEN>
+      responses:
+        '204':
+          description: No Content
+  /api/v1/auth/logout-all:
+    post:
+      summary: Logout from all sessions
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: No Content
+  /api/v1/auth/me:
+    get:
+      summary: Get current user profile
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithProfile'
+        '401':
+          description: Not authenticated
+  /api/v1/auth/change-password:
+    post:
+      summary: Change current user's password
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+            examples:
+              default:
+                value:
+                  current_password: OldPass#123
+                  new_password: NewPass#123
+                  confirm_password: NewPass#123
+      responses:
+        '204':
+          description: No Content
+        '400':
+          description: Current password incorrect or validation error
+  /api/v1/auth/sessions:
+    get:
+      summary: Get active sessions for current user
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSession'
+        '401':
+          description: Not authenticated
+  /api/v1/auth/health:
+    get:
+      summary: Health check
+      tags: [Authentication]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: authentication
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserRegister:
+      type: object
+      required: [email, password, username, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-zA-Z0-9_-]+$'
+        full_name:
+          type: string
+          maxLength: 100
+          nullable: true
+        role:
+          type: string
+          enum: [admin, invoicing_user, contact_user]
+          default: contact_user
+    UserLogin:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    TokenResponse:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        token_type:
+          type: string
+          example: bearer
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+          example: 900
+      example:
+        access_token: <ACCESS_TOKEN>
+        refresh_token: <REFRESH_TOKEN>
+        token_type: bearer
+        expires_in: 900
+    TokenRefresh:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        full_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UserWithProfile:
+      allOf:
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+              enum: [admin, invoicing_user, contact_user]
+            id:
+              type: string
+              format: uuid
+            is_active:
+              type: boolean
+        - type: object
+          properties:
+            profile:
+              $ref: '#/components/schemas/UserProfile'
+    PasswordChange:
+      type: object
+      required: [current_password, new_password, confirm_password]
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirm_password:
+          type: string
+    UserSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_agent:
+          type: string
+          nullable: true
+        ip_address:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time

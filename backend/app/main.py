@@ -1,5 +1,80 @@
-# Entry point for the FastAPI app
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-app = FastAPI()
+from api.router import api_router
+from config.settings import settings
+from core.database import create_tables
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup
+    await create_tables()
+    yield
+    # Shutdown
+    pass
+
+
+# Create FastAPI application
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Production-ready authentication system for Odoo Hackathon",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add trusted host middleware (security) - disabled for development
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "*.localhost", "*"] if settings.DEBUG else ["yourdomain.com"]
+# )
+
+# Include API router
+app.include_router(api_router)
+
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": f"Welcome to {settings.APP_NAME}",
+        "version": settings.APP_VERSION,
+        "docs_url": "/docs" if settings.DEBUG else "Documentation disabled in production",
+        "status": "running"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.DEBUG,
+        log_level="debug" if settings.DEBUG else "info"
+    )
