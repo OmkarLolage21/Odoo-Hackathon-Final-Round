@@ -185,7 +185,7 @@ paths:
       summary: Create a new contact
       tags: [Contacts]
       security:
-        - BearerAuth: []
+        - bearerAuth: []
       parameters:
         - in: header
           name: X-User-Role
@@ -425,7 +425,7 @@ paths:
       summary: Get all contacts
       tags: [Contacts]
       security:
-        - BearerAuth: []
+        - bearerAuth: []
       parameters:
         - in: header
           name: X-User-Role
@@ -449,6 +449,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/users:
+    get:
+      summary: List users (admin only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          schema:
+            type: string
+            enum: [admin]
+          required: true
+          description: Must be 'admin' and match the authenticated user's role
+      responses:
+        '200':
+          description: List of users with profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserWithProfile'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Only admin users can access this endpoint
 components:
   securitySchemes:
     bearerAuth:
