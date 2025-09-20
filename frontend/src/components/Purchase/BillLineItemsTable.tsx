@@ -1,6 +1,8 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { usePurchase } from '../../contexts/PurchaseContext';
+import productService from '../../services/productService';
+import accountService from '../../services/accountService';
 
 interface Props {
   lines: import('../../contexts/PurchaseContext').PurchaseLine[];
@@ -14,11 +16,26 @@ const headerCell = 'py-2 px-2 border-r border-dotted border-gray-300 text-[11px]
 
 export default function BillLineItemsTable({ lines, onChange, readOnly }: Props) {
   const { computeLineAmounts, formatCurrency } = usePurchase();
+  const [productOptions, setProductOptions] = useState<{ value: string; label: string; hsn?: string; tax?: number }[]>([]);
+  const [accountOptions, setAccountOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    // Load products and accounts once for dropdowns
+    (async () => {
+      try {
+        const role = localStorage.getItem('user_role') || undefined;
+        const products = await productService.list(role);
+        setProductOptions(products.map((p: any) => ({ value: p.name, label: p.name, hsn: p.hsnCode, tax: p.purchaseTaxPercent })));
+        const accounts = await accountService.list(role);
+        setAccountOptions(accounts.map((a: any) => ({ value: a.name, label: a.name })));
+      } catch { /* ignore for now */ }
+    })();
+  }, []);
 
   const updateLine = (id: string, patch: Partial<import('../../contexts/PurchaseContext').PurchaseLine>) => {
     onChange(lines.map(l => l.id === id ? { ...l, ...patch } : l));
   };
-  const addLine = () => onChange([...lines, { id: uuidv4(), product: '', quantity: 1, unitPrice: 0, taxPercent: 18, hsn: '', accountName: 'Purchase Expense A/c' }]);
+  const addLine = () => onChange([...lines, { id: uuidv4(), product: '', quantity: 1, unitPrice: 0, taxPercent: 0, hsn: '', accountName: '' }]);
   const removeLine = (id: string) => onChange(lines.filter(l => l.id !== id));
 
   const totals = lines.reduce((acc, l) => {
@@ -50,13 +67,47 @@ export default function BillLineItemsTable({ lines, onChange, readOnly }: Props)
               <tr key={l.id} className="border-b border-dotted border-gray-300 last:border-0">
                 <td className={cell}>{i+1}</td>
                 <td className={cell}>
-                  <input className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs" disabled={readOnly} value={l.product} placeholder="Product" onChange={e=>updateLine(l.id,{product:e.target.value})} />
+                  {readOnly ? (
+                    <div className="text-xs">{l.product}</div>
+                  ) : (
+                    <select
+                      className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs"
+                      value={l.product}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const prod = productOptions.find(p => p.value === val);
+                        updateLine(l.id, {
+                          product: val,
+                          hsn: prod?.hsn || '',
+                          taxPercent: prod?.tax ?? l.taxPercent,
+                        });
+                      }}
+                    >
+                      <option value="">Select product</option>
+                      {productOptions.map(p => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td className={cell}>
-                  <input className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs" disabled={readOnly} value={l.hsn||''} placeholder="HSN" onChange={e=>updateLine(l.id,{hsn:e.target.value})} />
+                  <input className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs" disabled value={l.hsn||''} placeholder="HSN" />
                 </td>
                 <td className={cell}>
-                  <input className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs" disabled={readOnly} value={l.accountName||''} placeholder="Account" onChange={e=>updateLine(l.id,{accountName:e.target.value})} />
+                  {readOnly ? (
+                    <div className="text-xs">{l.accountName || ''}</div>
+                  ) : (
+                    <select
+                      className="w-full bg-transparent border-b border-purple-300 focus:outline-none text-xs"
+                      value={l.accountName || ''}
+                      onChange={(e)=>updateLine(l.id,{accountName:e.target.value})}
+                    >
+                      <option value="">Select account</option>
+                      {accountOptions.map(a => (
+                        <option key={a.value} value={a.value}>{a.label}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td className={cell}>
                   <input type="number" className="w-16 bg-transparent border-b border-purple-300 focus:outline-none text-right" disabled={readOnly} value={l.quantity} onChange={e=>updateLine(l.id,{quantity:Number(e.target.value)})} />
