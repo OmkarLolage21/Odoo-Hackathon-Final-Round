@@ -1,10 +1,15 @@
 // Core types for the accounting system
+export type AppRole = 'admin' | 'invoicing_user' | 'contact';
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'invoicing_user' | 'contact';
+  role: AppRole;
   profileImage?: string;
+  username?: string;
+  full_name?: string;
+  is_active?: boolean;
 }
 
 export interface Contact {

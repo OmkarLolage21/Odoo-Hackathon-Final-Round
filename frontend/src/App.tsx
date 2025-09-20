@@ -16,6 +16,8 @@ import TaxForm from './pages/Taxes/TaxForm';
 import ChartOfAccountsList from './pages/ChartOfAccounts/ChartOfAccountsList';
 import ChartOfAccountsForm from './pages/ChartOfAccounts/ChartOfAccountsForm';
 import BalanceSheet from './pages/Reports/BalanceSheet';
+import Sessions from './pages/Auth/Sessions';
+import ChangePassword from './pages/Auth/ChangePassword';
 import PurchaseOrderList from './pages/Purchase/PurchaseOrderList';
 import PurchaseOrderForm from './pages/Purchase/PurchaseOrderForm';
 import VendorBillList from './pages/Purchase/VendorBillList';
@@ -29,8 +31,9 @@ import ReceiptForm from './pages/Sales/ReceiptForm';
 import ProfitLoss from './pages/Reports/ProfitLoss';
 import StockReport from './pages/Reports/StockReport';
 import PartnerLedger from './pages/Reports/PartnerLedger';
-import MyInvoices from './pages/Portal/MyInvoices';
-import Payments from './pages/Payments/Payments';
+// import MyInvoices from './pages/Portal/MyInvoices';
+// import Payments from './pages/Payments/Payments';
+import AuthStatusBanner from './components/Auth/AuthStatusBanner';
 // import MyInvoices from './pages/Portal/MyInvoices';
 // import Payments from './pages/Payments/Payments';
 
@@ -103,6 +106,9 @@ function AppContent() {
                     <Route path="reports/profit-loss" element={<ProfitLoss />} />
                     <Route path="reports/stock" element={<StockReport />} />
                     <Route path="reports/partner-ledger" element={<PartnerLedger />} />
+                    {/* Account / Security */}
+                    <Route path="account/sessions" element={<Sessions />} />
+                    <Route path="account/change-password" element={<ChangePassword />} />
                     {/* Payments & Portal */}
                     {/* <Route path="payments" element={<Payments />} /> */}
                     {/* <Route path="my-invoices" element={<MyInvoices />} /> */}
@@ -128,6 +134,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
+      <AuthStatusBanner />
       <AppContent />
     </AuthProvider>
   );

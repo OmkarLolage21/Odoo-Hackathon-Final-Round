@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/UI/Button';
 import Input from '../../components/UI/Input';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
@@ -16,6 +17,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -60,11 +62,17 @@ export default function SignUp() {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Handle successful signup
-    } catch (error) {
+      await register(
+        formData.email,
+        formData.password,
+        formData.loginId,
+        formData.name,
+        'contact_user' // Backend role for self-registration
+      );
+      // Registration successful - user will be automatically logged in
+    } catch (error: any) {
       console.error('Error signing up:', error);
+      setErrors({ submit: error.message || 'Registration failed. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -185,6 +193,12 @@ export default function SignUp() {
               <p className="text-sm text-red-600 mt-1">{errors.confirmPassword}</p>
             )}
           </div>
+
+          {errors.submit && (
+            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              {errors.submit}
+            </div>
+          )}
 
           <Button
             type="submit"

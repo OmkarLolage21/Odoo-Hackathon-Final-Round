@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   HomeIcon,
   UsersIcon,
@@ -57,11 +57,12 @@ const navigation = [
     ]
   },
   { name: 'My Invoices', href: '/my-invoices', icon: DocumentTextIcon, roles: ['contact'] },
+  { name: 'Sessions', href: '/account/sessions', icon: CogIcon, roles: ['admin', 'invoicing_user', 'contact'] },
+  { name: 'Change Password', href: '/account/change-password', icon: CogIcon, roles: ['admin', 'invoicing_user', 'contact'] },
 ];
 
 export default function Sidebar() {
   const { user } = useAuth();
-  const location = useLocation();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
 
   const toggleExpanded = (name: string) => {
