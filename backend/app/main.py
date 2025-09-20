@@ -13,6 +13,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     await create_tables()
+    # Log CORS settings at startup for debugging
+    try:
+        print(f"[Startup] DEBUG={settings.DEBUG} ALLOWED_ORIGINS={settings.ALLOWED_ORIGINS}")
+    except Exception:
+        pass
     yield
     # Shutdown
     pass
@@ -29,13 +34,24 @@ app = FastAPI(
 )
 
 # Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.DEBUG:
+    # In development, allow localhost on any port via regex, plus configured explicit origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Add trusted host middleware (security) - disabled for development
 # app.add_middleware(
