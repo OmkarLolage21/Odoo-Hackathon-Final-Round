@@ -66,7 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Try to get current user with existing token
         try {
           const userData = await authService.getCurrentUser();
-          setUser(convertBackendUser(userData));
+          const converted = convertBackendUser(userData);
+          setUser(converted);
+          try { localStorage.setItem('user_role', converted.role); } catch { /* ignore */ }
         } catch (error) {
           // Token might be expired, try to refresh if we have refresh token
           if (refreshToken) {
@@ -132,7 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Get user data after successful login
       const userData = await authService.getCurrentUser();
-      setUser(convertBackendUser(userData));
+      const converted = convertBackendUser(userData);
+      setUser(converted);
+      try { localStorage.setItem('user_role', converted.role); } catch { /* ignore */ }
       setAuthError(null);
     } catch (error) {
       console.error('Login error:', error);
@@ -163,7 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Get user data after successful registration
       const userData = await authService.getCurrentUser();
-      setUser(convertBackendUser(userData));
+      const converted = convertBackendUser(userData);
+      setUser(converted);
+      try { localStorage.setItem('user_role', converted.role); } catch { /* ignore */ }
       setAuthError(null);
     } catch (error) {
       console.error('Registration error:', error);
@@ -185,7 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Get updated user data
       const userData = await authService.getCurrentUser();
-      setUser(convertBackendUser(userData));
+      const converted = convertBackendUser(userData);
+      setUser(converted);
+      try { localStorage.setItem('user_role', converted.role); } catch { /* ignore */ }
       setAuthError(null);
     } catch (error) {
       clearTokens();

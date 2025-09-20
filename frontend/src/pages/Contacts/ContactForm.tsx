@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
@@ -7,7 +7,8 @@ import Select from '../../components/UI/Select';
 import ActionBar from '../../components/UI/ActionBar';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
-import { canCreateContact, canEditContact } from '../../utils/rolePermissions';
+import { canCreateContact, canEditContact, canDeleteContact } from '../../utils/rolePermissions';
+import { contactService } from '../../services/contactService';
 
 export default function ContactForm() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function ContactForm() {
   const { user } = useAuth();
   const canEdit = canEditContact(user?.role);
   const canCreate = canCreateContact(user?.role);
+  const canDelete = canDeleteContact(user?.role);
 
   // Block contact users entirely
   if (user?.role === 'contact') {
@@ -41,6 +43,44 @@ export default function ContactForm() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiSuccess, setApiSuccess] = useState<string | null>(null);
+  const [initialLoaded, setInitialLoaded] = useState(!isEdit);
+
+  // Load existing contact in edit mode
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!isEdit || !id) return;
+      setIsLoading(true);
+      try {
+        const data = await contactService.get(id);
+        if (!active) return;
+        setFormData({
+          name: data.name || '',
+            type: (data.type as any) || '',
+            email: data.email || '',
+            mobile: data.mobile || '',
+            address: {
+              city: data.address_city || '',
+              state: data.address_state || '',
+              pincode: data.address_pincode || ''
+            },
+            profileImage: ''
+        });
+      } catch (e: any) {
+        if (!active) return;
+        setApiError(e.message || 'Failed to load contact');
+      } finally {
+        if (active) {
+          setIsLoading(false);
+          setInitialLoaded(true);
+        }
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [isEdit, id]);
 
   const typeOptions = [
     { value: 'customer', label: 'Customer' },
@@ -99,19 +139,26 @@ export default function ContactForm() {
     address_pincode: formData.address.pincode.trim() || null,
     // user_id intentionally omitted (future enhancement)
   });
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
     const payload = buildPayload();
     setIsLoading(true);
+    setApiError(null);
+    setApiSuccess(null);
     try {
-      // Placeholder API simulation
-      console.log('Submitting contact payload', payload);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      navigate('/contacts');
-    } catch (error) {
+      if (isEdit && id) {
+        await contactService.update(id, payload as any);
+        setApiSuccess('Contact updated successfully');
+        setTimeout(() => navigate('/contacts'), 600);
+        return;
+      }
+      await contactService.create(payload as any);
+      setApiSuccess('Contact created successfully');
+      setTimeout(() => navigate('/contacts'), 600);
+    } catch (error: any) {
       console.error('Error saving contact:', error);
+      setApiError(error.message || 'Failed to save contact');
     } finally {
       setIsLoading(false);
     }
@@ -123,18 +170,25 @@ export default function ContactForm() {
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...prev[parent as keyof typeof prev] as any,
+          ...(prev as any)[parent],
           [child]: value
         }
       }));
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
-    
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  if (isEdit && !initialLoaded) {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        Loading contact...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -255,7 +309,40 @@ export default function ContactForm() {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+          {apiError && (
+            <div className="p-3 rounded bg-red-50 text-red-700 text-sm">
+              {apiError}
+            </div>
+          )}
+          {apiSuccess && (
+            <div className="p-3 rounded bg-green-50 text-green-700 text-sm">
+              {apiSuccess}
+            </div>
+          )}
+
+          <div className="flex justify-between space-x-4 pt-6 border-t border-gray-200">
+            {isEdit && canDelete && (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={async () => {
+                  if (!id) return;
+                  if (!window.confirm('Delete this contact permanently?')) return;
+                  setIsLoading(true);
+                  setApiError(null);
+                  try {
+                    await contactService.delete(id);
+                    navigate('/contacts');
+                  } catch (e: any) {
+                    setApiError(e.message || 'Failed to delete contact');
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"

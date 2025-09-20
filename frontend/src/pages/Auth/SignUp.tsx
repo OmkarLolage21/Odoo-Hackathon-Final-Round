@@ -11,7 +11,8 @@ export default function SignUp() {
     loginId: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: 'contact_user'
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -67,7 +68,7 @@ export default function SignUp() {
         formData.password,
         formData.loginId,
         formData.name,
-        'contact_user' // Backend role for self-registration
+        formData.role // selected backend role
       );
       // Registration successful - user will be automatically logged in
     } catch (error: any) {
@@ -125,6 +126,21 @@ export default function SignUp() {
             error={errors.email}
             placeholder="Enter your email"
           />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <select
+              aria-label="Select role"
+              value={formData.role}
+              onChange={(e) => handleChange('role', e.target.value)}
+              className={`block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors border-gray-300 focus:border-brand-500`}
+            >
+              <option value="invoicing_user">Invoicing User</option>
+              <option value="contact_user">Contact User</option>
+            </select>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -220,7 +236,6 @@ export default function SignUp() {
           <div className="text-center">
             <div className="text-sm text-gray-600 mb-3">For Sign up Page:</div>
             <div className="space-y-1 text-xs bg-gray-50 p-3 rounded">
-              <p>Create a 'invoicing user' database into the system on signup</p>
               <p>Check creds as follows:</p>
               <p>1. Login ID should be unique and must be between 6-12 characters</p>
               <p>2. Email ID should not be a duplicate in database</p>

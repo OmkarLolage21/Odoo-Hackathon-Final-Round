@@ -40,6 +40,7 @@ class ProductBase(BaseModel):
     hsn_code: Optional[str] = Field(default=None, max_length=50)
     category: Optional[str] = Field(default=None, max_length=100)
     current_stock: int = 0
+    tax_name: Optional[str] = Field(default=None, max_length=100)
 
 
 class ProductCreate(ProductBase):
@@ -50,6 +51,9 @@ class Product(ProductBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+    # Computed (not necessarily stored) tax percentages derived from tax_name lookup
+    sales_tax_percent: float | None = None
+    purchase_tax_percent: float | None = None
 
     class Config:
         from_attributes = True
@@ -63,6 +67,7 @@ class ProductUpdate(BaseModel):
     hsn_code: Optional[str] = Field(default=None, max_length=50)
     category: Optional[str] = Field(default=None, max_length=100)
     current_stock: Optional[int] = None
+    tax_name: Optional[str] = Field(default=None, max_length=100)
 
 
 class HSNItem(BaseModel):

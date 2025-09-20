@@ -100,18 +100,6 @@ export default function LoginForm() {
           </div>
 
           <div className="text-center">
-            <div className="text-sm text-gray-600 mb-3">Demo accounts:</div>
-            <div className="space-y-1 text-xs">
-              <div className="bg-gray-50 p-2 rounded">
-                <strong>Admin:</strong> admin@shivfurniture.com / password
-              </div>
-              <div className="bg-gray-50 p-2 rounded">
-                <strong>Accountant:</strong> accountant@shivfurniture.com / password
-              </div>
-              <div className="bg-gray-50 p-2 rounded">
-                <strong>Contact:</strong> nimesh@example.com / password
-              </div>
-            </div>
             <p className="mt-4 text-sm text-gray-600">Don't have an account? <Link to="/signup" className="text-brand-600 hover:text-brand-500 font-medium">Sign Up</Link></p>
           </div>
         </form>

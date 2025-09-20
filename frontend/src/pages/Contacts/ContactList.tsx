@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Contact } from '../../types';
+import { ContactResponse } from '../../types';
 import Card from '../../components/UI/Card';
 import Button from '../../components/UI/Button';
 import Input from '../../components/UI/Input';
@@ -8,67 +8,76 @@ import Table from '../../components/UI/Table';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { visibleContactActions } from '../../utils/rolePermissions';
+import { contactService } from '../../services/contactService';
 
-// Mock data
-const mockContacts: Contact[] = [
-  {
-    id: '1',
-    name: 'Azure Furniture',
-    type: 'vendor',
-    email: 'contact@azurefurniture.com',
-    mobile: '+91 98765 43210',
-    address: {
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001'
-    },
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01')
-  },
-  {
-    id: '2',
-    name: 'Nimesh Pathak',
-    type: 'customer',
-    email: 'nimesh@example.com',
-    mobile: '+91 87654 32109',
-    address: {
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411001'
-    },
-    createdAt: new Date('2025-01-02'),
-    updatedAt: new Date('2025-01-02')
-  },
-  {
-    id: '3',
-    name: 'Modern Office Solutions',
-    type: 'both',
-    email: 'info@modernoffice.com',
-    mobile: '+91 76543 21098',
-    address: {
-      city: 'Delhi',
-      state: 'Delhi',
-      pincode: '110001'
-    },
-    createdAt: new Date('2025-01-03'),
-    updatedAt: new Date('2025-01-03')
-  },
-];
+interface UiContact {
+  id: string;
+  name: string;
+  type: 'customer' | 'vendor' | 'both';
+  email: string;
+  mobile: string;
+  address: { city: string; state: string; pincode?: string };
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 export default function ContactList() {
   const { user } = useAuth();
-  const [contacts] = useState<Contact[]>(mockContacts);
+  const [contacts, setContacts] = useState<UiContact[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      if (!user) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await contactService.list();
+        if (!active) return;
+        // Transform backend shape to UI shape
+        const mapped: UiContact[] = (data || []).map((c: ContactResponse) => ({
+          id: c.id || crypto.randomUUID(),
+          name: c.name || 'Unnamed',
+          type: (c.type as any) || 'customer',
+          email: c.email || '',
+          mobile: c.mobile || '',
+          address: {
+            city: c.address_city || '',
+            state: c.address_state || '',
+            pincode: c.address_pincode || ''
+          },
+          createdAt: c.created_at ? new Date(c.created_at) : undefined,
+          updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+        }));
+        setContacts(mapped);
+      } catch (e: any) {
+        if (!active) return;
+        if (e?.response?.status === 403) {
+          setError('You do not have permission to view contacts.');
+        } else {
+          setError(e?.message || 'Failed to load contacts');
+        }
+      } finally {
+        active = false;
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, [user]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   // Derive visible contacts based on role
   const roleFiltered = useMemo(() => {
-    if (!user) return [];
-    if (user.role === 'admin' || user.role === 'invoicing_user') return contacts; // full access
+    if (!user) return [] as UiContact[];
+    if (user.role === 'admin' || user.role === 'invoicing_user') return contacts;
     if (user.role === 'contact') {
-      // find matching contact by email or name for demo
+      // contact user -> only their own contact: match by email first fallback to name
       return contacts.filter(c => c.email === user.email || c.name === user.name);
     }
-    return [];
+    return [] as UiContact[];
   }, [user, contacts]);
 
   const filteredContacts = roleFiltered.filter(contact => {
@@ -111,7 +120,7 @@ export default function ContactList() {
       (contactPerms.edit || contactPerms.delete) ? {
         key: 'actions',
         label: 'Actions',
-        render: (_: any, contact: Contact) => (
+        render: (_: any, contact: UiContact) => (
           <div className="flex space-x-2">
             {contactPerms.edit && (
               <Link
@@ -122,7 +131,19 @@ export default function ContactList() {
               </Link>
             )}
             {contactPerms.delete && (
-              <button className="text-red-600 hover:text-red-900 text-sm font-medium">
+              <button
+                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!window.confirm('Delete this contact?')) return;
+                  try {
+                    await contactService.delete(contact.id);
+                    setContacts(prev => prev.filter(c => c.id !== contact.id));
+                  } catch (err: any) {
+                    alert(err?.message || 'Failed to delete contact');
+                  }
+                }}
+              >
                 Delete
               </button>
             )}
@@ -187,8 +208,45 @@ export default function ContactList() {
         </Card>
       )}
 
-      {/* Table */}
-      <Table columns={columns.filter(Boolean) as any} data={filteredContacts} />
+      {/* Table / States */}
+      {loading && (
+        <Card>
+          <div className="py-10 text-center text-gray-500">Loading contacts...</div>
+        </Card>
+      )}
+      {error && !loading && (
+        <Card>
+          <div className="py-6 text-center text-red-600 text-sm flex flex-col space-y-3">
+            <span>{error}</span>
+            <div>
+              <Button variant="secondary" onClick={() => {
+                // simple retry
+                setError(null); setLoading(true);
+                contactService.list().then(data => {
+                  const mapped: UiContact[] = (data || []).map((c: ContactResponse) => ({
+                    id: c.id || crypto.randomUUID(),
+                    name: c.name || 'Unnamed',
+                    type: (c.type as any) || 'customer',
+                    email: c.email || '',
+                    mobile: c.mobile || '',
+                    address: { city: c.address_city || '', state: c.address_state || '', pincode: c.address_pincode || '' },
+                    createdAt: c.created_at ? new Date(c.created_at) : undefined,
+                    updatedAt: c.updated_at ? new Date(c.updated_at) : undefined,
+                  }));
+                  setContacts(mapped);
+                  setLoading(false);
+                }).catch(err => {
+                  setError(err?.message || 'Failed to load contacts');
+                  setLoading(false);
+                });
+              }}>Retry</Button>
+            </div>
+          </div>
+        </Card>
+      )}
+      {!loading && !error && (
+        <Table columns={columns.filter(Boolean) as any} data={filteredContacts} />
+      )}
     </div>
   );
 }

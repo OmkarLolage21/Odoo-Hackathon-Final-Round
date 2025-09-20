@@ -28,14 +28,40 @@ export interface Contact {
   updatedAt: Date;
 }
 
+// Backend API representations (snake_case fields, timestamps as ISO strings)
+export interface ContactResponse {
+  id: string;
+  name: string;
+  type: 'customer' | 'vendor' | 'both';
+  email: string | null;
+  mobile: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_pincode?: string | null;
+  user_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateContactRequest {
+  name: string;
+  type: 'customer' | 'vendor' | 'both';
+  email?: string | null;
+  mobile?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_pincode?: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
   type: 'goods' | 'service';
   salesPrice: number;
   purchasePrice: number;
-  saleTaxPercent: number;
-  purchaseTaxPercent: number;
+  taxName?: string | null;
+  salesTaxPercent?: number; // derived from taxName lookup
+  purchaseTaxPercent?: number; // derived from taxName lookup
   hsnCode: string;
   category: string;
   createdAt: Date;

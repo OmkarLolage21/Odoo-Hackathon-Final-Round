@@ -51,6 +51,22 @@ async def get_products(
     return await service.list_products()
 
 
+@router.get("/{product_id}", response_model=ProductSchema)
+async def get_product(
+    product_id: UUID,
+    current_user: User = Depends(verify_user_role),
+    session: AsyncSession = Depends(get_session)
+):
+    """Get single product by id. Requires invoicing_user or admin."""
+    if current_user.role not in [UserRole.ADMIN, UserRole.INVOICING_USER]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    service = ProductService(session)
+    product = await service.get_by_id(product_id)
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    return product
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProductSchema)
 async def create_product(
     payload: ProductCreate,

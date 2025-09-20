@@ -111,20 +111,20 @@ class ApiClient {
     }
   }
 
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
+  async get<T>(endpoint: string, config: { headers?: Record<string,string> } = {}): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET', headers: config.headers });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body: data ? JSON.stringify(data) : undefined });
+  async post<T>(endpoint: string, data?: any, config: { headers?: Record<string,string> } = {}): Promise<T> {
+    return this.request<T>(endpoint, { method: 'POST', body: data ? JSON.stringify(data) : undefined, headers: config.headers });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body: data ? JSON.stringify(data) : undefined });
+  async put<T>(endpoint: string, data?: any, config: { headers?: Record<string,string> } = {}): Promise<T> {
+    return this.request<T>(endpoint, { method: 'PUT', body: data ? JSON.stringify(data) : undefined, headers: config.headers });
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  async delete<T>(endpoint: string, config: { headers?: Record<string,string> } = {}): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', headers: config.headers });
   }
 }
 

@@ -23,6 +23,7 @@ import PurchaseOrderForm from './pages/Purchase/PurchaseOrderForm';
 import VendorBillList from './pages/Purchase/VendorBillList';
 import VendorBillForm from './pages/Purchase/VendorBillForm';
 import BillPaymentForm from './pages/Purchase/BillPaymentForm';
+import PaymentList from './pages/Purchase/PaymentList';
 import SalesOrderList from './pages/Sales/SalesOrderList';
 import SalesOrderForm from './pages/Sales/SalesOrderForm';
 import CustomerInvoiceList from './pages/Sales/CustomerInvoiceList';
@@ -34,6 +35,7 @@ import PartnerLedger from './pages/Reports/PartnerLedger';
 // import MyInvoices from './pages/Portal/MyInvoices';
 // import Payments from './pages/Payments/Payments';
 import AuthStatusBanner from './components/Auth/AuthStatusBanner';
+import { PurchaseProvider } from './contexts/PurchaseContext';
 // import MyInvoices from './pages/Portal/MyInvoices';
 // import Payments from './pages/Payments/Payments';
 
@@ -93,6 +95,8 @@ function AppContent() {
                     <Route path="vendor-bills/new" element={<VendorBillForm />} />
                     <Route path="vendor-bills/:id/edit" element={<VendorBillForm />} />
                     <Route path="vendor-bills/:id/pay" element={<BillPaymentForm />} />
+                    <Route path="payments" element={<PaymentList />} />
+                    <Route path="payments/:paymentId" element={<BillPaymentForm />} />
                     {/* Sales */}
                     <Route path="sales-orders" element={<SalesOrderList />} />
                     <Route path="sales-orders/new" element={<SalesOrderForm />} />
@@ -135,7 +139,9 @@ function App() {
   return (
     <AuthProvider>
       <AuthStatusBanner />
-      <AppContent />
+      <PurchaseProvider>
+        <AppContent />
+      </PurchaseProvider>
     </AuthProvider>
   );
 }
