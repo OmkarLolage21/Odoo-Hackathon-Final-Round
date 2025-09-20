@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
 
 # User schemas
 
@@ -27,3 +28,47 @@ class ContactResponse(ContactBase):
 
     class Config:
         from_attributes = True
+
+
+# Product schemas
+
+class ProductBase(BaseModel):
+    name: str = Field(..., max_length=255)
+    type: str = Field(..., pattern="^(goods|service)$")
+    sales_price: float
+    purchase_price: float
+    hsn_code: Optional[str] = Field(default=None, max_length=50)
+    category: Optional[str] = Field(default=None, max_length=100)
+    current_stock: int = 0
+
+
+class ProductCreate(ProductBase):
+    pass
+
+
+class Product(ProductBase):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    type: Optional[str] = Field(default=None, pattern="^(goods|service)$")
+    sales_price: Optional[float] = None
+    purchase_price: Optional[float] = None
+    hsn_code: Optional[str] = Field(default=None, max_length=50)
+    category: Optional[str] = Field(default=None, max_length=100)
+    current_stock: Optional[int] = None
+
+
+class HSNItem(BaseModel):
+    c: str
+    n: str
+
+
+class HSNResponse(BaseModel):
+    data: list[HSNItem]

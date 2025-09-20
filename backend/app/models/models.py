@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
-from sqlalchemy import Enum, String, ForeignKey
+import enum
+from sqlalchemy import Enum, String, ForeignKey, Numeric, Integer
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.sql import func
 
@@ -21,5 +22,30 @@ class Contact(Base):
     address_pincode: Mapped[str] = mapped_column(String(10), nullable=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), unique=True, nullable=True)
     user = relationship("User", back_populates="contact")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+# Product models
+
+class ProductType(str, enum.Enum):
+    GOODS = "goods"
+    SERVICE = "service"
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # DB enum name 'product_type' to match requested type
+    type: Mapped[str] = mapped_column(Enum('goods', 'service', name='product_type'), nullable=False)
+
+    sales_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    purchase_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    hsn_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    current_stock: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

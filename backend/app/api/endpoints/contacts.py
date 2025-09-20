@@ -114,10 +114,10 @@ async def update_contact(
     current_user: User = Depends(verify_user_role),
     session: AsyncSession = Depends(get_session)
 ):
-    if current_user.role not in [UserRole.ADMIN, UserRole.INVOICING_USER]:
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admin and invoicing users can update contacts"
+            detail="Only admin can update contacts"
         )
         
     query = select(Contact).where(Contact.id == contact_id)
@@ -141,8 +141,14 @@ async def update_contact(
 @router.delete("/{contact_id}")
 async def delete_contact(
     contact_id: UUID,
+    current_user: User = Depends(verify_user_role),
     session: AsyncSession = Depends(get_session)
 ):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can delete contacts"
+        )
     query = select(Contact).where(Contact.id == contact_id)
     result = await session.execute(query)
     contact = result.scalar_one_or_none()
