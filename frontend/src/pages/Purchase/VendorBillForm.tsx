@@ -4,11 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchase } from '../../contexts/PurchaseContext';
 import BillLineItemsTable from '../../components/Purchase/BillLineItemsTable';
 import Button from '../../components/UI/Button';
+import { createVendorBill as apiCreateBill } from '../../services/vendorBillService';
 
 export default function VendorBillForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { vendorBills, createVendorBill, postVendorBill, setVendorBillLines, computeTotals, formatCurrency } = usePurchase();
+  const { vendorBills, createVendorBill, postVendorBill, setVendorBillLines, computeTotals, formatCurrency, updateVendorBill } = usePurchase();
   const [billId, setBillId] = useState<string | null>(null);
   // removed inline partial payment; dedicated payment page instead
 
@@ -25,7 +26,36 @@ export default function VendorBillForm() {
   const totals = bill ? computeTotals(bill.lines) : { untaxed: 0, tax: 0, total: 0 };
   const remaining = bill ? totals.total - bill.paidAmount : 0;
 
-  const onConfirm = () => bill && bill.status === 'draft' && postVendorBill(bill.id);
+  const onConfirm = async () => {
+    if (!bill || bill.status !== 'draft') return;
+    const payload = {
+      vendor_name: bill.vendor,
+      bill_reference: bill.reference,
+      purchase_order_id: bill.poId || undefined,
+      lines: bill.lines.map(l => ({
+        product_name: l.product,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        account_name: l.accountName || undefined,
+      })),
+    };
+    try {
+      const res: any = await apiCreateBill(payload, localStorage.getItem('user_role') || undefined);
+      const mappedLines = (res.lines || []).map((r: any, idx: number) => ({
+        id: bill.lines[idx]?.id || String(idx),
+        product: r.product_name,
+        quantity: r.quantity,
+        unitPrice: r.unit_price,
+        taxPercent: r.tax_percent,
+        hsn: r.hsn_code,
+        accountName: r.account_name,
+      }));
+      setVendorBillLines(bill.id, mappedLines);
+      postVendorBill(bill.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const goPay = () => {
     if (!bill) return; navigate(`/vendor-bills/${bill.id}/pay`);
   };
@@ -69,7 +99,7 @@ export default function VendorBillForm() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-purple-700 mb-1">Vendor Name</label>
-            <div className="text-sm font-medium">{bill.vendor}</div>
+            <input className="text-sm font-medium w-full bg-transparent border-b border-purple-300 focus:outline-none" value={bill.vendor} onChange={e=>updateVendorBill(bill.id,{ vendor: e.target.value } as any)} />
             <div className="text-[10px] text-gray-500 mt-0.5">From Contact Master - Many to one</div>
           </div>
           <div>

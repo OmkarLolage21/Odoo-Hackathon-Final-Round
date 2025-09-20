@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
+from typing import List
 
 # User schemas
 
@@ -181,6 +182,69 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     created_at: datetime
     updated_at: datetime
     lines: list[PurchaseOrderLineResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+# =============================
+# Vendor Bill Schemas
+# =============================
+
+class VendorBillLineBase(BaseModel):
+    product_name: str
+    quantity: int
+    unit_price: float
+    product_id: UUID | None = None
+
+
+class VendorBillLineCreate(VendorBillLineBase):
+    product_id: UUID | None = None
+    account_name: str | None = None
+
+
+class VendorBillLineResponse(VendorBillLineBase):
+    id: UUID
+    product_id: UUID
+    hsn_code: str | None = None
+    account_name: str | None = None
+    tax_percent: float
+    untaxed_amount: float
+    tax_amount: float
+    total_amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class VendorBillBase(BaseModel):
+    status: str | None = None
+    vendor_name: str | None = None
+    bill_reference: str | None = None
+    bill_date: datetime | None = None
+    due_date: datetime | None = None
+    purchase_order_id: UUID | None = None
+
+
+class VendorBillCreate(VendorBillBase):
+    lines: List[VendorBillLineCreate]
+
+
+class VendorBillUpdate(VendorBillBase):
+    lines: List[VendorBillLineCreate] | None = None
+
+
+class VendorBillResponse(VendorBillBase):
+    id: UUID
+    bill_number: str
+    total_untaxed: float
+    total_tax: float
+    total_amount: float
+    paid_cash: float
+    paid_bank: float
+    created_at: datetime
+    updated_at: datetime
+    lines: List[VendorBillLineResponse] = []
 
     class Config:
         from_attributes = True
