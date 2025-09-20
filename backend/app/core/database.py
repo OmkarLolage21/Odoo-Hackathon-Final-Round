@@ -47,6 +47,7 @@ async def create_tables():
     """Create all database tables."""
     # Import models to register them with metadata
     from models.user_models import User, UserProfile, AuthRefreshToken
+    from models.models import Contact, Product
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

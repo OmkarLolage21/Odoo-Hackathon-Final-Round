@@ -85,24 +85,39 @@ async def get_current_active_user(
     return current_user
 
 
+def _extract_role_value(role_obj) -> str:
+    try:
+        return role_obj.value  # Enum case
+    except Exception:
+        return str(role_obj)
+
+
 def require_role(required_role: str):
-    """
-    Dependency factory to require specific user role.
-    
-    Args:
-        required_role: Required user role
-        
-    Returns:
-        Dependency function
-    """
+    """Dependency factory to require a specific user role (supports Enums)."""
     def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
-        if current_user.role != required_role:
+        user_role = _extract_role_value(current_user.role)
+        if user_role != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions"
             )
         return current_user
-    
+    return role_checker
+
+
+def require_any_role(*roles: str):
+    """Dependency factory to allow access if user has any of the given roles."""
+    allowed = set(roles)
+
+    def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        user_role = _extract_role_value(current_user.role)
+        if user_role not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions"
+            )
+        return current_user
+
     return role_checker
 
 
@@ -110,6 +125,7 @@ def require_role(required_role: str):
 require_admin = require_role("admin")
 require_invoicing_user = require_role("invoicing_user")
 require_contact_user = require_role("contact_user")
+require_invoicing_or_admin = require_any_role("invoicing_user", "admin")
 
 
 async def get_request_info(request: Request) -> dict:
