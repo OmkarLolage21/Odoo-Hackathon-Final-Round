@@ -221,6 +221,199 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/products:
+    get:
+      summary: List products
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          required: true
+          description: User role for authorization (must match authenticated user)
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+    post:
+      summary: Create a new product
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          required: true
+          description: User role for authorization (must be admin or invoicing_user)
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+            examples:
+              goods:
+                value:
+                  name: Steel Rod 8mm
+                  type: goods
+                  sales_price: 22.2
+                  purchase_price: 15.0
+                  hsn_code: '1001'
+                  category: Construction
+                  current_stock: 0
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+
+  /api/v1/products/hsn/search:
+    get:
+      summary: Search HSN codes (proxied to GST service)
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          required: true
+          description: User role for authorization (admin or invoicing_user)
+          schema:
+            type: string
+            enum: [admin, invoicing_user]
+        - in: query
+          name: q
+          required: true
+          description: Search query (code or description text)
+          schema:
+            type: string
+        - in: query
+          name: mode
+          required: false
+          description: Search mode
+          schema:
+            type: string
+            enum: [byCode, byDesc]
+            default: byCode
+        - in: query
+          name: category
+          required: false
+          description: Category for byDesc (e.g., 'P' for product)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HSNResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Insufficient permissions
+
+  /api/v1/products/{product_id}:
+    put:
+      summary: Update a product
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          required: true
+          description: User role for authorization (admin only)
+          schema:
+            type: string
+            enum: [admin]
+        - in: path
+          name: product_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+            examples:
+              update:
+                value:
+                  name: Steel Rod 10mm
+                  sales_price: 25.5
+                  category: Metals
+      responses:
+        '200':
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Only admin can update products
+        '404':
+          description: Product not found
+    delete:
+      summary: Delete a product
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-User-Role
+          required: true
+          description: User role for authorization (admin only)
+          schema:
+            type: string
+            enum: [admin]
+        - in: path
+          name: product_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Product deleted successfully
+        '401':
+          description: Not authenticated
+        '403':
+          description: Only admin can delete products
         '422':
           description: Validation error
           content:
@@ -657,6 +850,99 @@ components:
         expires_at:
           type: string
           format: date-time
+    ProductCreate:
+      type: object
+      required: [name, type, sales_price, purchase_price]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [goods, service]
+        sales_price:
+          type: number
+          format: float
+        purchase_price:
+          type: number
+          format: float
+        hsn_code:
+          type: string
+          maxLength: 50
+          nullable: true
+        category:
+          type: string
+          maxLength: 100
+          nullable: true
+        current_stock:
+          type: integer
+          default: 0
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [goods, service]
+        sales_price:
+          type: number
+        purchase_price:
+          type: number
+        hsn_code:
+          type: string
+          maxLength: 50
+        category:
+          type: string
+          maxLength: 100
+        current_stock:
+          type: integer
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [goods, service]
+        sales_price:
+          type: number
+        purchase_price:
+          type: number
+        hsn_code:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        current_stock:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    HSNItem:
+      type: object
+      properties:
+        c:
+          type: string
+          description: Code
+        n:
+          type: string
+          description: Description
+    HSNResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HSNItem'
         created_at:
           type: string
           format: date-time
