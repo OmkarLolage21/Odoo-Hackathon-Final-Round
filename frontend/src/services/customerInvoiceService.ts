@@ -20,6 +20,14 @@ class CustomerInvoiceService {
     const data = await apiClient.get<CustomerInvoiceResponse>(`${BASE_PATH}/${id}`, { headers: roleHeader(role) });
     return data;
   }
+
+  async createFromSalesOrder(salesOrderId: string, role?: string) {
+    return apiClient.post<CustomerInvoiceResponse>(`${BASE_PATH}/from-sales-order/${salesOrderId}`, null, { headers: roleHeader(role) });
+  }
+
+  async updateStatus(id: string, status: string, role?: string) {
+    return apiClient.patch<CustomerInvoiceResponse>(`${BASE_PATH}/${id}/status`, { status }, { headers: roleHeader(role) });
+  }
 }
 
 export const customerInvoiceService = new CustomerInvoiceService();

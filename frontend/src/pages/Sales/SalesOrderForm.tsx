@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Card from '../../components/UI/Card';
 import Input from '../../components/UI/Input';
 import Button from '../../components/UI/Button';
 import Table from '../../components/UI/Table';
 import { useNavigate } from 'react-router-dom';
-import { SalesOrderLineInput, SalesOrderResponse } from '../../types';
+import { SalesOrderLineInput, SalesOrderResponse, ContactResponse } from '../../types';
+import contactService from '../../services/contactService';
+import customerInvoiceService from '../../services/customerInvoiceService';
 import { useAuth } from '../../contexts/AuthContext';
 import salesOrderService from '../../services/salesOrderService';
 import productService from '../../services/productService';
@@ -16,6 +18,7 @@ export default function SalesOrderForm() {
   const { user } = useAuth();
   const role = user?.role;
   const [customerName, setCustomerName] = useState('');
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [reference, setReference] = useState('');
   const [order, setOrder] = useState<SalesOrderResponse | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([]);
@@ -30,6 +33,17 @@ export default function SalesOrderForm() {
       .catch(()=>{})
       .finally(()=> setProductLoading(false));
   }, [role]);
+
+  // Fetch contacts for dropdown (customers and both)
+  const [contacts, setContacts] = useState<ContactResponse[]>([]);
+  useEffect(() => {
+    contactService.list().then(list => {
+      const filtered = list.filter(c => c.type === 'customer' || c.type === 'both');
+      setContacts(filtered);
+    }).catch(()=>{});
+  }, []);
+
+  const customerOptions = useMemo(() => contacts.map(c => ({ value: c.id, label: c.name })), [contacts]);
 
   // When product changes, auto-fill unit price and tax preview
   useEffect(() => {
@@ -113,6 +127,18 @@ export default function SalesOrderForm() {
     return acc;
   }, { untaxed: 0, tax: 0, total: 0 });
 
+  const createInvoice = async () => {
+    if (!order || order.status !== 'confirmed' || !role) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const inv = await customerInvoiceService.createFromSalesOrder(order.id, role);
+      navigate(`/customer-invoices/${inv.id}`);
+    } catch (e:any) {
+      setError(e.message || 'Failed to create invoice');
+    } finally { setLoading(false); }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -125,7 +151,7 @@ export default function SalesOrderForm() {
           <Button size="sm" variant="secondary" disabled>Print</Button>
           <Button size="sm" variant="secondary" disabled>Send</Button>
           <Button size="sm" variant="secondary" disabled={!order || order.status !== 'draft'} onClick={() => updateStatus('cancelled')}>Cancel</Button>
-          <Button size="sm" variant="primary" disabled>Invoice</Button>
+          <Button size="sm" variant="primary" disabled={!(order && order.status==='confirmed')} onClick={createInvoice}>Invoice</Button>
           <div className="ml-auto flex gap-2 text-xs">
             <span className={`px-2 py-1 rounded border ${(!order || order.status==='draft')?'bg-purple-50 border-purple-300 text-purple-700':'border-gray-200 text-gray-400'}`}>Draft</span>
             <span className={`px-2 py-1 rounded border ${(order && order.status==='confirmed')?'bg-purple-50 border-purple-300 text-purple-700':'border-gray-200 text-gray-400'}`}>Confirm</span>
@@ -152,11 +178,24 @@ export default function SalesOrderForm() {
             <div className="text-[10px] text-gray-500 mt-0.5">Creation date</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-purple-700 mb-1">Customer Name</label>
-            {(!order || order.status==='draft') ? (
-              <Input value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="Customer" />
+            <label className="block text-xs font-semibold text-purple-700 mb-1">Customer</label>
+            {(!order || order.status==='draft') && !loading ? (
+              <select
+                aria-label="Customer"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                value={customerId || ''}
+                onChange={e => {
+                  const val = e.target.value || '';
+                  setCustomerId(val || null);
+                  const sel = customerOptions.find(o => o.value === val);
+                  setCustomerName(sel?.label || '');
+                }}
+              >
+                <option value="">Select customer</option>
+                {customerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             ) : <div className="text-sm font-medium">{customerName || '-'}</div>}
-            <div className="text-[10px] text-gray-500 mt-0.5">(Future: link Contact)</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">Linked to Contacts (customer/both)</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-purple-700 mb-1">Reference</label>
@@ -168,7 +207,7 @@ export default function SalesOrderForm() {
         </div>
       </Card>
 
-      {(!order || order.status === 'draft') && (
+      {(!order || order.status === 'draft') && !loading && (
         <Card>
           <div className="grid md:grid-cols-6 gap-4 items-end">
             <div className="col-span-2">
@@ -187,7 +226,13 @@ export default function SalesOrderForm() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600">Qty</label>
-              <Input type="number" value={newLine.quantity} onChange={e=>setNewLine(n=>({...n, quantity: Number(e.target.value)}))} />
+              <Input type="number" value={newLine.quantity} onChange={e=>{
+                let q = Number(e.target.value);
+                if (isNaN(q)) q = 1;
+                if (q < 1) q = 1;
+                if (q > 10) q = 10;
+                setNewLine(n=>({...n, quantity: q}));
+              }} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600">Unit Price</label>

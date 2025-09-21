@@ -69,6 +69,25 @@ async def get_vendor_bill(
     return bill
 
 
+@router.post("/from-purchase-order/{purchase_order_id}", response_model=VendorBillResponse, status_code=status.HTTP_201_CREATED)
+async def create_vendor_bill_from_purchase_order(
+    purchase_order_id: UUID,
+    current_user: User = Depends(verify_user_role),
+    session: AsyncSession = Depends(get_session)
+):
+    """Generate a draft vendor bill with lines copied from a confirmed purchase order.
+    Frontend flow: after PO confirmation, enable 'Create Bill' button calling this endpoint;
+    then navigate to returned bill detail for review & confirmation.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.INVOICING_USER]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    service = VendorBillService(session)
+    try:
+        return await service.create_bill_from_purchase_order(purchase_order_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/{bill_id}", response_model=VendorBillResponse)
 async def update_vendor_bill(
     bill_id: UUID,
