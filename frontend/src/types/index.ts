@@ -346,3 +346,35 @@ export interface CustomerInvoiceResponse {
   updated_at: string;
   lines: CustomerInvoiceLine[];
 }
+
+// =====================
+// Payments (API-backed)
+// =====================
+
+export interface PaymentCreateRequest {
+  partner_type: 'vendor' | 'customer';
+  partner_name?: string | null;
+  payment_method: 'cash' | 'bank';
+  amount: number; // > 0
+  vendor_bill_id?: string | null;
+  customer_invoice_id?: string | null;
+}
+
+export interface PaymentUpdateRequest {
+  status?: 'draft' | 'posted' | 'cancelled';
+}
+
+export interface PaymentResponse {
+  id: string;
+  payment_number: string;
+  status: 'draft' | 'posted' | 'cancelled';
+  partner_type: 'vendor' | 'customer';
+  partner_name?: string | null;
+  payment_method: 'cash' | 'bank';
+  amount: number;
+  payment_date: string;
+  vendor_bill_id?: string | null;
+  customer_invoice_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}

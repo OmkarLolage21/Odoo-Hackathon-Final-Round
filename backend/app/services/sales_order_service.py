@@ -1,7 +1,7 @@
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.models import Product, SalesOrder, SalesOrderLine, Tax
+from models.models import Product, SalesOrder, SalesOrderLine, Tax, Contact
 from schemas.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderUpdate
 
 
@@ -25,8 +25,13 @@ class SalesOrderService:
     async def create_order(self, payload: SalesOrderCreate) -> SalesOrderResponse:
         # Generate SO number using uuid (could be improved to sequential later)
         so_number = str(uuid4())
+        customer_name = payload.customer_name
+        if payload.customer_id and not customer_name:
+            contact = (await self.session.execute(select(Contact).where(Contact.id == payload.customer_id))).scalar_one_or_none()
+            if contact:
+                customer_name = contact.name
 
-        order = SalesOrder(so_number=so_number)
+        order = SalesOrder(so_number=so_number, customer_id=payload.customer_id, customer_name=customer_name)
         self.session.add(order)
         await self.session.flush()  # get order id
 
@@ -94,6 +99,17 @@ class SalesOrderService:
         # Update status if provided
         if payload.status:
             order.status = payload.status
+
+        # Update customer info
+        if getattr(payload, 'customer_id', None) is not None:
+            order.customer_id = payload.customer_id
+            if payload.customer_id:
+                contact = (await self.session.execute(select(Contact).where(Contact.id == payload.customer_id))).scalar_one_or_none()
+                if contact:
+                    order.customer_name = contact.name
+        if getattr(payload, 'customer_name', None) is not None:
+            # Allow overriding customer_name manually if provided
+            order.customer_name = payload.customer_name
 
         # If lines provided, replace all existing lines
         if payload.lines is not None:

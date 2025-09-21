@@ -94,6 +94,8 @@ class SalesOrder(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
     # business-visible number (uuid string for now per requirement)
     so_number: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    customer_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(
         Enum('draft', 'confirmed', 'cancelled', name='sales_order_status'),
         nullable=False, server_default='draft'
@@ -292,3 +294,48 @@ class CustomerInvoiceItem(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     invoice: Mapped[CustomerInvoice] = relationship(back_populates="lines")
+
+
+# ==========================
+# Payments models
+# ==========================
+
+class PaymentStatus(str, enum.Enum):
+    DRAFT = "draft"
+    POSTED = "posted"
+    CANCELLED = "cancelled"
+
+
+class PartnerType(str, enum.Enum):
+    VENDOR = "vendor"
+    CUSTOMER = "customer"
+
+
+class PaymentMethod(str, enum.Enum):
+    CASH = "cash"
+    BANK = "bank"
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    payment_number: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Enum('draft', 'posted', 'cancelled', name='payment_status'),
+        nullable=False, server_default='draft'
+    )
+    partner_type: Mapped[str] = mapped_column(
+        Enum('vendor', 'customer', name='partner_type'), nullable=False
+    )
+    partner_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payment_method: Mapped[str] = mapped_column(
+        Enum('cash', 'bank', name='payment_method'), nullable=False
+    )
+    amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    payment_date: Mapped[datetime] = mapped_column(server_default=func.now())
+    vendor_bill_id: Mapped[UUID | None] = mapped_column(ForeignKey("vendor_bills.id", ondelete="SET NULL"), nullable=True)
+    customer_invoice_id: Mapped[UUID | None] = mapped_column(ForeignKey("customer_invoices.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+

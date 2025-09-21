@@ -123,6 +123,10 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'PUT', body: data ? JSON.stringify(data) : undefined, headers: config.headers });
   }
 
+  async patch<T>(endpoint: string, data?: any, config: { headers?: Record<string,string> } = {}): Promise<T> {
+    return this.request<T>(endpoint, { method: 'PATCH', body: data ? JSON.stringify(data) : undefined, headers: config.headers });
+  }
+
   async delete<T>(endpoint: string, config: { headers?: Record<string,string> } = {}): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', headers: config.headers });
   }

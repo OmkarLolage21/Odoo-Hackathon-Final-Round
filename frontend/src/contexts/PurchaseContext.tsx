@@ -73,6 +73,7 @@ interface PurchaseContextValue {
   postBillPayment(paymentId: string): void;
   cancelBillPayment(paymentId: string): void;
   updateBillPayment(paymentId: string, patch: Partial<Pick<BillPaymentData, 'method' | 'note' | 'amount'>>): void;
+  importVendorBill(data: VendorBillData): void;
   computeLineAmounts(line: PurchaseLine): { untaxed: number; tax: number; total: number };
   computeTotals(lines: PurchaseLine[]): { untaxed: number; tax: number; total: number };
   formatCurrency(v: number): string;
@@ -286,6 +287,9 @@ export const PurchaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     postBillPayment,
     cancelBillPayment,
   updateBillPayment,
+    importVendorBill: (data: VendorBillData) => {
+      setVendorBills(prev => prev.some(b => b.id === data.id) ? prev : [data, ...prev]);
+    },
     computeLineAmounts,
     computeTotals,
     formatCurrency
