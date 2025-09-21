@@ -234,3 +234,61 @@ class VendorBillLine(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     bill: Mapped[VendorBill] = relationship(back_populates="lines")
+
+
+# ==========================
+# Customer Invoice models
+# ==========================
+
+class InvoiceStatus(str, enum.Enum):
+    DRAFT = "draft"
+    POSTED = "posted"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+
+
+class CustomerInvoice(Base):
+    __tablename__ = "customer_invoices"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    invoice_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    customer_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    invoice_date: Mapped[datetime | None] = mapped_column(Date(), nullable=True)
+    due_date: Mapped[datetime | None] = mapped_column(Date(), nullable=True)
+    status: Mapped[str] = mapped_column(
+        Enum('draft', 'posted', 'paid', 'cancelled', name='invoice_status'),
+        nullable=False, server_default='draft'
+    )
+
+    total_untaxed: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_tax: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    amount_paid: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    lines: Mapped[list["CustomerInvoiceItem"]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan", lazy='selectin'
+    )
+
+
+class CustomerInvoiceItem(Base):
+    __tablename__ = "customer_invoice_items"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    customer_invoice_id: Mapped[UUID] = mapped_column(ForeignKey("customer_invoices.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[UUID] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    product_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    hsn_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    account_id: Mapped[UUID | None] = mapped_column(ForeignKey("chart_of_accounts.id", ondelete="SET NULL"), nullable=True)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
+    untaxed_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    tax_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    total_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    invoice: Mapped[CustomerInvoice] = relationship(back_populates="lines")
