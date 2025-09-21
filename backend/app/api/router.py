@@ -1,18 +1,6 @@
 from fastapi import APIRouter
 
-from api.endpoints import (
-	auth,
-	contacts,
-	users,
-	taxes,
-	products,
-	coa,
-	sales_orders,
-	purchase_orders,
-	vendor_bills,
-	customer_invoices,
-	payments,
-)
+from api.endpoints import auth, contacts, users, taxes, products, coa, sales_orders, purchase_orders, vendor_bills, customer_invoices, dashboard, payments
 
 # Create main API router
 router = APIRouter(prefix="/api/v1")
@@ -28,6 +16,7 @@ router.include_router(sales_orders.router)
 router.include_router(purchase_orders.router)
 router.include_router(vendor_bills.router)
 router.include_router(customer_invoices.router)
+router.include_router(dashboard.router)
 router.include_router(payments.router)
 
 # Backward-compatible alias

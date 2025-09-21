@@ -31,6 +31,24 @@ class ContactResponse(ContactBase):
         from_attributes = True
 
 
+# =============================
+# Dashboard Schemas
+# =============================
+
+class DashboardMonthlyItem(BaseModel):
+    month: str  # e.g., '2025-09'
+    sales: float
+    purchases: float
+
+
+class DashboardResponse(BaseModel):
+    total_revenue: float
+    total_expenses: float
+    net_profit: float
+    total_items_in_stock: int
+    sales_vs_purchases: List[DashboardMonthlyItem]
+
+
 # Product schemas
 
 class ProductBase(BaseModel):
