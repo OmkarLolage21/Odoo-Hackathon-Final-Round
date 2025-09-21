@@ -1,80 +1,70 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/UI/Card';
 import {
-  UsersIcon,
   CubeIcon,
   BanknotesIcon,
   DocumentTextIcon,
   ArrowUpIcon,
   ArrowDownIcon
 } from '@heroicons/react/24/outline';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import apiClient from '../utils/apiClient';
 
-const salesData = [
-  { month: 'Jan', sales: 65000, purchases: 45000 },
-  { month: 'Feb', sales: 78000, purchases: 52000 },
-  { month: 'Mar', sales: 90000, purchases: 48000 },
-  { month: 'Apr', sales: 81000, purchases: 61000 },
-  { month: 'May', sales: 95000, purchases: 55000 },
-  { month: 'Jun', sales: 87000, purchases: 49000 },
-];
+type DashboardMonthlyItem = {
+  month: string; // YYYY-MM
+  sales: number;
+  purchases: number;
+};
 
-const expenseData = [
-  { name: 'Purchases', value: 310000, color: '#8B5CF6' },
-  { name: 'Operating Expenses', value: 85000, color: '#3B82F6' },
-  { name: 'Marketing', value: 45000, color: '#10B981' },
-  { name: 'Others', value: 25000, color: '#F59E0B' },
-];
+type DashboardResponse = {
+  total_revenue: number;
+  total_expenses: number;
+  net_profit: number;
+  total_items_in_stock: number;
+  sales_vs_purchases: DashboardMonthlyItem[];
+};
+
+const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const labelMonth = (ym: string) => {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, (m || 1) - 1, 1);
+  return d.toLocaleString('en-US', { month: 'short' });
+};
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = [
-    {
-      name: 'Total Revenue',
-      value: '₹4,86,000',
-      change: '+12.5%',
-      changeType: 'increase',
-      icon: BanknotesIcon,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100'
-    },
-    {
-      name: 'Total Expenses',
-      value: '₹3,14,000',
-      change: '+2.1%',
-      changeType: 'increase',
-      icon: DocumentTextIcon,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100'
-    },
-    {
-      name: 'Net Profit',
-      value: '₹1,72,000',
-      change: '+28.4%',
-      changeType: 'increase',
-      icon: ArrowUpIcon,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100'
-    },
-    {
-      name: 'Pending Payments',
-      value: '₹89,500',
-      change: '-5.2%',
-      changeType: 'decrease',
-      icon: DocumentTextIcon,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100'
-    },
-  ];
+  useEffect(() => {
+    if (!user || user.role === 'contact') return; // contact view handled below
+    const fetchDashboard = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const headers: Record<string, string> = {};
+        if (user.role) headers['X-User-Role'] = user.role; // admin | invoicing_user
+        const res = await apiClient.get<DashboardResponse>('/api/v1/dashboard', { headers });
+        setData(res);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, [user]);
 
-  const quickStats = [
-    { name: 'Active Customers', value: '142', icon: UsersIcon },
-    { name: 'Products in Stock', value: '89', icon: CubeIcon },
-    { name: 'Pending Orders', value: '23', icon: DocumentTextIcon },
-    { name: 'Low Stock Items', value: '7', icon: CubeIcon },
-  ];
+  const chartData = useMemo(() => {
+    if (!data) return [] as { month: string; sales: number; purchases: number }[];
+    return data.sales_vs_purchases.map((i) => ({
+      month: labelMonth(i.month),
+      sales: i.sales,
+      purchases: i.purchases,
+    }));
+  }, [data]);
 
   if (user?.role === 'contact') {
     return (
@@ -139,120 +129,90 @@ export default function Dashboard() {
         <p className="text-gray-600">Overview of your business performance</p>
       </div>
 
+      {loading && (
+        <Card>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </Card>
+      )}
+      {error && (
+        <Card>
+          <p className="text-red-600">{error}</p>
+        </Card>
+      )}
+
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <Card key={stat.name}>
+      {data && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
             <div className="flex items-center">
-              <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+              <div className="p-3 rounded-lg bg-green-100">
+                <BanknotesIcon className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4 flex-1">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <div className={`ml-2 flex items-center text-sm ${
-                    stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {stat.changeType === 'increase' ? (
-                      <ArrowUpIcon className="w-4 h-4 mr-1" />
-                    ) : (
-                      <ArrowDownIcon className="w-4 h-4 mr-1" />
-                    )}
-                    {stat.change}
-                  </div>
-                </div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(data.total_revenue)}</p>
               </div>
             </div>
           </Card>
-        ))}
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {quickStats.map((stat) => (
-          <Card key={stat.name}>
+          <Card>
             <div className="flex items-center">
-              <stat.icon className="w-8 h-8 text-gray-400" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-xl font-bold text-gray-900">{stat.value}</p>
+              <div className="p-3 rounded-lg bg-red-100">
+                <DocumentTextIcon className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(data.total_expenses)}</p>
               </div>
             </div>
           </Card>
-        ))}
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Sales vs Purchases</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, '']} />
-              <Bar dataKey="sales" fill="#8B5CF6" name="Sales" />
-              <Bar dataKey="purchases" fill="#3B82F6" name="Purchases" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Expense Breakdown</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={expenseData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {expenseData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, '']} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {expenseData.map((item, index) => (
-              <div key={index} className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full mr-2" 
-                  style={{ backgroundColor: item.color }}
-                ></div>
-                <span className="text-sm text-gray-600">{item.name}</span>
+          <Card>
+            <div className="flex items-center">
+              <div className={`p-3 rounded-lg ${data.net_profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                {data.net_profit >= 0 ? (
+                  <ArrowUpIcon className="w-6 h-6 text-green-600" />
+                ) : (
+                  <ArrowDownIcon className="w-6 h-6 text-red-600" />
+                )}
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <Card>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-        <div className="space-y-4">
-          {[
-            { action: 'Created invoice INV-2025-001', time: '2 hours ago', user: 'Accountant' },
-            { action: 'Received payment from Nimesh Pathak', time: '4 hours ago', user: 'System' },
-            { action: 'Added new product: Executive Chair', time: '1 day ago', user: 'Admin' },
-            { action: 'Updated vendor: Azure Furniture', time: '2 days ago', user: 'Accountant' },
-          ].map((activity, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium">{activity.action}</p>
-                <p className="text-sm text-gray-600">by {activity.user}</p>
+              <div className="ml-4 flex-1">
+                <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                <p className={`text-2xl font-bold ${data.net_profit >= 0 ? 'text-gray-900' : 'text-red-700'}`}>{formatCurrency(data.net_profit)}</p>
               </div>
-              <span className="text-sm text-gray-500">{activity.time}</span>
             </div>
-          ))}
+          </Card>
+          <Card>
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg bg-blue-100">
+                <CubeIcon className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-sm font-medium text-gray-600">Items in Stock</p>
+                <p className="text-2xl font-bold text-gray-900">{data.total_items_in_stock}</p>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+      )}
+
+      {/* Sales vs Purchases Chart */}
+      {data && (
+        <div className="grid grid-cols-1 gap-6">
+          <Card>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Sales vs Purchases</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), '']} />
+                <Bar dataKey="sales" fill="#8B5CF6" name="Sales" />
+                <Bar dataKey="purchases" fill="#3B82F6" name="Purchases" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </div>
+      )}
+      {/* End */}
     </div>
   );
 }
