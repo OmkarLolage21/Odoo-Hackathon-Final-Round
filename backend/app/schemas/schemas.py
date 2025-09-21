@@ -305,3 +305,49 @@ class CustomerInvoiceResponse(CustomerInvoiceBase):
 
     class Config:
         from_attributes = True
+
+
+# =============================
+# Payments & Journal Entries
+# =============================
+
+class PaymentBase(BaseModel):
+    payment_direction: str  # 'send' | 'receive'
+    partner_id: UUID
+    payment_date: datetime
+    amount: float
+    journal_id: UUID
+    contra_account_id: UUID  # Debtors/Creditor account depending on direction
+    note: str | None = None
+    customer_invoice_id: UUID | None = None  # optional link when paying invoice
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class PaymentResponse(PaymentBase):
+    id: UUID
+    payment_number: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class JournalEntryResponse(BaseModel):
+    id: UUID
+    transaction_id: UUID
+    entry_date: datetime
+    account_id: UUID
+    partner_id: UUID | None = None
+    debit_amount: float
+    credit_amount: float
+    description: str | None = None
+    customer_invoice_id: UUID | None = None
+    payment_id: UUID | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

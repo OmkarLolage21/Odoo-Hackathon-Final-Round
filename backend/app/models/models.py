@@ -292,3 +292,46 @@ class CustomerInvoiceItem(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     invoice: Mapped[CustomerInvoice] = relationship(back_populates="lines")
+
+
+# ==========================
+# Payments & Journal Entries
+# ==========================
+
+class PaymentDirection(str, enum.Enum):
+    SEND = "send"
+    RECEIVE = "receive"
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    payment_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    payment_direction: Mapped[str] = mapped_column(Enum('send', 'receive', name='payment_direction'), nullable=False)
+    partner_id: Mapped[UUID] = mapped_column(ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False)
+    payment_date: Mapped[datetime] = mapped_column(Date(), nullable=False)
+    amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    journal_id: Mapped[UUID] = mapped_column(ForeignKey("chart_of_accounts.id", ondelete="RESTRICT"), nullable=False)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    transaction_id: Mapped[UUID] = mapped_column(nullable=False)
+    entry_date: Mapped[datetime] = mapped_column(Date(), nullable=False)
+    account_id: Mapped[UUID] = mapped_column(ForeignKey("chart_of_accounts.id", ondelete="RESTRICT"), nullable=False)
+    partner_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    debit_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    credit_amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, server_default='0')
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    customer_invoice_id: Mapped[UUID | None] = mapped_column(ForeignKey("customer_invoices.id", ondelete="SET NULL"), nullable=True)
+    payment_id: Mapped[UUID | None] = mapped_column(ForeignKey("payments.id", ondelete="SET NULL"), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
