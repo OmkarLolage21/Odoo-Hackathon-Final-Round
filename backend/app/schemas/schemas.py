@@ -248,3 +248,60 @@ class VendorBillResponse(VendorBillBase):
 
     class Config:
         from_attributes = True
+
+
+# =============================
+# Customer Invoice Schemas
+# =============================
+
+class CustomerInvoiceLineBase(BaseModel):
+    product_name: str
+    quantity: int
+    unit_price: float
+    product_id: UUID | None = None
+    account_id: UUID | None = None
+
+
+class CustomerInvoiceLineCreate(CustomerInvoiceLineBase):
+    product_id: UUID | None = None
+    account_id: UUID | None = None
+
+
+class CustomerInvoiceLineResponse(CustomerInvoiceLineBase):
+    id: UUID
+    product_id: UUID
+    hsn_code: str | None = None
+    tax_percent: float
+    untaxed_amount: float
+    tax_amount: float
+    total_amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class CustomerInvoiceBase(BaseModel):
+    status: str | None = None
+    customer_id: UUID | None = None
+    customer_name: str | None = None
+    invoice_date: datetime | None = None
+    due_date: datetime | None = None
+
+
+class CustomerInvoiceCreate(CustomerInvoiceBase):
+    lines: List[CustomerInvoiceLineCreate]
+
+
+class CustomerInvoiceResponse(CustomerInvoiceBase):
+    id: UUID
+    invoice_number: str
+    total_untaxed: float
+    total_tax: float
+    total_amount: float
+    amount_paid: float
+    created_at: datetime
+    updated_at: datetime
+    lines: List[CustomerInvoiceLineResponse] = []
+
+    class Config:
+        from_attributes = True

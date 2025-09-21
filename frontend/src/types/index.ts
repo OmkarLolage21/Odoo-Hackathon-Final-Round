@@ -298,3 +298,51 @@ export interface PurchaseOrderResponse {
   updated_at: string;
   lines: PurchaseOrderLine[];
 }
+
+// =====================
+// Customer Invoices (API-backed)
+// =====================
+
+export interface CustomerInvoiceLineInput {
+  product_name: string; // user enters product name or choose via dropdown
+  quantity: number;
+  unit_price: number;
+  product_id?: string; // optional when chosen via dropdown
+  account_id?: string | null; // optional from COA dropdown
+}
+
+export interface CustomerInvoiceLine extends CustomerInvoiceLineInput {
+  id: string;
+  product_id: string;
+  hsn_code?: string | null;
+  tax_percent: number;
+  untaxed_amount: number;
+  tax_amount: number;
+  total_amount: number;
+}
+
+export interface CustomerInvoiceCreateRequest {
+  status?: 'draft' | 'posted' | 'paid' | 'cancelled'; // default draft
+  customer_id?: string | null;
+  customer_name?: string | null; // free text field
+  invoice_date?: string | null; // ISO date (yyyy-mm-dd)
+  due_date?: string | null; // ISO date (yyyy-mm-dd)
+  lines: CustomerInvoiceLineInput[];
+}
+
+export interface CustomerInvoiceResponse {
+  id: string;
+  invoice_number: string; // uuid string from backend (for now)
+  status: 'draft' | 'posted' | 'paid' | 'cancelled';
+  customer_id?: string | null;
+  customer_name?: string | null;
+  invoice_date?: string | null;
+  due_date?: string | null;
+  total_untaxed: number;
+  total_tax: number;
+  total_amount: number;
+  amount_paid: number;
+  created_at: string;
+  updated_at: string;
+  lines: CustomerInvoiceLine[];
+}
