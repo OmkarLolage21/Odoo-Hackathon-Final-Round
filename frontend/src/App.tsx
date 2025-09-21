@@ -29,6 +29,7 @@ import SalesOrderForm from './pages/Sales/SalesOrderForm';
 import SalesOrderEdit from './pages/Sales/SalesOrderEdit';
 import CustomerInvoiceList from './pages/Sales/CustomerInvoiceList';
 import CustomerInvoiceForm from './pages/Sales/CustomerInvoiceForm';
+import InvoicePaymentForm from './pages/Sales/InvoicePaymentForm';
 import ReceiptForm from './pages/Sales/ReceiptForm';
 import ProfitLoss from './pages/Reports/ProfitLoss';
 import StockReport from './pages/Reports/StockReport';
@@ -94,6 +95,7 @@ function AppContent() {
                     <Route path="purchase-orders/:id/edit" element={<PurchaseOrderForm />} />
                     <Route path="vendor-bills" element={<VendorBillList />} />
                     <Route path="vendor-bills/new" element={<VendorBillForm />} />
+                    <Route path="vendor-bills/:id" element={<VendorBillForm />} />
                     <Route path="vendor-bills/:id/edit" element={<VendorBillForm />} />
                     <Route path="vendor-bills/:id/pay" element={<BillPaymentForm />} />
                     <Route path="payments" element={<PaymentList />} />
@@ -104,7 +106,9 @@ function AppContent() {
                     <Route path="sales-orders/:id/edit" element={<SalesOrderEdit />} />
                     <Route path="customer-invoices" element={<CustomerInvoiceList />} />
                     <Route path="customer-invoices/new" element={<CustomerInvoiceForm />} />
+                    <Route path="customer-invoices/:id" element={<CustomerInvoiceForm />} />
                     <Route path="customer-invoices/:id/edit" element={<CustomerInvoiceForm />} />
+                    <Route path="customer-invoices/:id/pay" element={<InvoicePaymentForm />} />
                     <Route path="receipts/new" element={<ReceiptForm />} />
                     {/* Reports */}
                     <Route path="reports/balance-sheet" element={<BalanceSheet />} />

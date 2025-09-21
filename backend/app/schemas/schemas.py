@@ -127,6 +127,8 @@ class SalesOrderLineResponse(SalesOrderLineBase):
 
 class SalesOrderBase(BaseModel):
     status: str | None = None  # defaults to draft server-side
+    customer_id: UUID | None = None
+    customer_name: str | None = None
 
 
 class SalesOrderCreate(SalesOrderBase):
@@ -320,6 +322,39 @@ class CustomerInvoiceResponse(CustomerInvoiceBase):
     created_at: datetime
     updated_at: datetime
     lines: List[CustomerInvoiceLineResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+# =============================
+# Payment Schemas
+# =============================
+
+class PaymentBase(BaseModel):
+    partner_type: str  # 'vendor' or 'customer'
+    partner_name: str | None = None
+    payment_method: str  # 'cash' or 'bank'
+    amount: float
+    vendor_bill_id: UUID | None = None
+    customer_invoice_id: UUID | None = None
+
+
+class PaymentCreate(PaymentBase):
+    pass
+
+
+class PaymentUpdate(BaseModel):
+    status: str | None = None  # 'draft' | 'posted' | 'cancelled'
+
+
+class PaymentResponse(PaymentBase):
+    id: UUID
+    payment_number: str
+    status: str
+    payment_date: datetime
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

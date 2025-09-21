@@ -4,23 +4,53 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchase } from '../../contexts/PurchaseContext';
 import BillLineItemsTable from '../../components/Purchase/BillLineItemsTable';
 import Button from '../../components/UI/Button';
-import { createVendorBill as apiCreateBill } from '../../services/vendorBillService';
+import { createVendorBill as apiCreateBill, getVendorBill } from '../../services/vendorBillService';
 
 export default function VendorBillForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { vendorBills, createVendorBill, postVendorBill, setVendorBillLines, computeTotals, formatCurrency, updateVendorBill } = usePurchase();
+  const { vendorBills, createVendorBill, postVendorBill, setVendorBillLines, computeTotals, formatCurrency, updateVendorBill, importVendorBill } = usePurchase();
   const [billId, setBillId] = useState<string | null>(null);
   // removed inline partial payment; dedicated payment page instead
 
   useEffect(() => {
+    const role = localStorage.getItem('user_role') || undefined;
     if (!id && !billId) {
       const bill = createVendorBill({ vendor: 'Azure Interior' });
       setBillId(bill.id);
-    } else if (id) {
-      setBillId(id);
+      return;
     }
-  }, [id, billId, createVendorBill]);
+    if (id) {
+      setBillId(id);
+      // if bill not in context, fetch from backend
+      const existing = vendorBills.find(b => b.id === id);
+      if (!existing) {
+        getVendorBill(id, role).then((res: any) => {
+          const mapped = {
+            id: res.id,
+            number: res.bill_number,
+            vendor: res.vendor_name || '',
+            date: res.bill_date || new Date().toISOString().slice(0,10),
+            dueDate: res.due_date || undefined,
+            reference: res.bill_reference || '',
+            poId: res.purchase_order_id || undefined,
+            status: res.status === 'confirmed' ? 'posted' : (res.status as any),
+            lines: (res.lines || []).map((l: any) => ({
+              id: l.id,
+              product: l.product_name,
+              quantity: l.quantity,
+              unitPrice: l.unit_price,
+              taxPercent: l.tax_percent,
+              hsn: l.hsn_code,
+              accountName: l.account_name,
+            })),
+            paidAmount: (Number(res.paid_cash || 0) + Number(res.paid_bank || 0))
+          } as any;
+          importVendorBill(mapped);
+        }).catch(()=>{});
+      }
+    }
+  }, [id, billId, createVendorBill, vendorBills, importVendorBill]);
 
   const bill = useMemo(() => vendorBills.find(b => b.id === billId) || null, [vendorBills, billId]);
   const totals = bill ? computeTotals(bill.lines) : { untaxed: 0, tax: 0, total: 0 };
@@ -99,7 +129,7 @@ export default function VendorBillForm() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-purple-700 mb-1">Vendor Name</label>
-            <input className="text-sm font-medium w-full bg-transparent border-b border-purple-300 focus:outline-none" value={bill.vendor} onChange={e=>updateVendorBill(bill.id,{ vendor: e.target.value } as any)} />
+            <input aria-label="Vendor Name" className="text-sm font-medium w-full bg-transparent border-b border-purple-300 focus:outline-none" value={bill.vendor} onChange={e=>updateVendorBill(bill.id,{ vendor: e.target.value } as any)} />
             <div className="text-[10px] text-gray-500 mt-0.5">From Contact Master - Many to one</div>
           </div>
           <div>

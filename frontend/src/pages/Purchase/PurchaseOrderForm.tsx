@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { PurchaseOrderLineInput, PurchaseOrderResponse, ContactResponse } from '../../types';
+import contactService from '../../services/contactService';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../components/UI/Card';
 import Input from '../../components/UI/Input';
@@ -6,8 +8,9 @@ import Table from '../../components/UI/Table';
 import Button from '../../components/UI/Button';
 import productService from '../../services/productService';
 import purchaseOrderService from '../../services/purchaseOrderService';
+import { createBillFromPurchaseOrder } from '../../services/vendorBillService';
 import { useAuth } from '../../contexts/AuthContext';
-import { PurchaseOrderResponse, PurchaseOrderLineInput } from '../../types';
+// (duplicate type import removed)
 
 interface DraftLine extends PurchaseOrderLineInput { temp_id: string; product_id?: string | null; tax_percent?: number; }
 
@@ -23,6 +26,17 @@ export default function PurchaseOrderForm() {
   const [error, setError] = useState<string|null>(null);
   const [loading, setLoading] = useState(false);
   const [vendorName, setVendorName] = useState('');
+  const [vendorId, setVendorId] = useState<string | null>(null);
+  // Fetch contacts for vendor dropdown
+  const [contacts, setContacts] = useState<ContactResponse[]>([]);
+  useEffect(() => {
+    contactService.list().then(list => {
+      const filtered = list.filter(c => c.type === 'vendor' || c.type === 'both');
+      setContacts(filtered);
+    }).catch(()=>{});
+  }, []);
+
+  const vendorOptions = useMemo(() => contacts.map(c => ({ value: c.id, label: c.name })), [contacts]);
 
   useEffect(() => {
     if (!role) return;
@@ -47,17 +61,41 @@ export default function PurchaseOrderForm() {
     setNewLine({ temp_id: crypto.randomUUID(), product_name: '', quantity: 1, unit_price: 0, product_id: null, tax_percent: 0 });
   };
 
-  const submitDraft = async () => {
+  const createDraft = async () => {
     if (!role) return;
     if (lines.length === 0) return;
     setLoading(true);
     setError(null);
     try {
       const payload = { vendor_name: vendorName || null, lines: lines.map((l: DraftLine) => ({ product_name: l.product_name, product_id: l.product_id, quantity: l.quantity, unit_price: l.unit_price })) };
-      const po = await purchaseOrderService.createDraft(payload, role);
+      const po = await purchaseOrderService.createDraft(payload as any, role);
       setOrder(po);
-    } catch(e:any) {
+    } catch (e:any) {
       setError(e.message || 'Failed to create purchase order');
+    } finally { setLoading(false); }
+  };
+
+  const confirmOrder = async () => {
+    if (!role || !order) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await purchaseOrderService.update(order.id, { status: 'confirmed' } as any, role);
+      setOrder(updated);
+    } catch(e:any) {
+      setError(e.message || 'Failed to confirm purchase order');
+    } finally { setLoading(false); }
+  };
+
+  const createBill = async () => {
+    if (!role || !order || order.status !== 'confirmed') return;
+    setLoading(true);
+    setError(null);
+    try {
+  const bill: any = await createBillFromPurchaseOrder(order.id, role);
+  navigate(`/vendor-bills/${bill.id}`);
+    } catch(e:any) {
+      setError(e.message || 'Failed to create vendor bill');
     } finally { setLoading(false); }
   };
 
@@ -95,11 +133,16 @@ export default function PurchaseOrderForm() {
       <Card>
         <div className="flex flex-wrap gap-2 mb-4">
           <Button size="sm" variant="secondary" onClick={() => navigate('/purchase-orders/new')}>New</Button>
-          <Button size="sm" variant="primary" disabled={!!order} onClick={submitDraft}>{loading ? 'Saving...' : 'Confirm'}</Button>
+          {!order && (
+            <Button size="sm" variant="primary" disabled={loading || lines.length===0} onClick={createDraft}>{loading ? 'Saving...' : 'Save Draft'}</Button>
+          )}
+          {order && order.status==='draft' && (
+            <Button size="sm" variant="primary" disabled={loading} onClick={confirmOrder}>{loading ? 'Confirming...' : 'Confirm'}</Button>
+          )}
           <Button size="sm" variant="secondary" disabled>Print</Button>
           <Button size="sm" variant="secondary" disabled>Send</Button>
           <Button size="sm" variant="secondary" disabled>Cancel</Button>
-          <Button size="sm" variant="primary" disabled>Bill</Button>
+          <Button size="sm" variant="primary" disabled={!(order && order.status==='confirmed')} onClick={createBill}>{loading && order?.status==='confirmed' ? 'Creating...' : 'Bill'}</Button>
           <div className="ml-auto flex gap-2 text-xs">
             <span className={`px-2 py-1 rounded border ${(!order)?'bg-purple-50 border-purple-300 text-purple-700':'border-gray-200 text-gray-400'}`}>Draft</span>
             <span className={`px-2 py-1 rounded border ${(order && order.status==='confirmed')?'bg-purple-50 border-purple-300 text-purple-700':'border-gray-200 text-gray-400'}`}>Confirm</span>
@@ -122,13 +165,24 @@ export default function PurchaseOrderForm() {
             <div className="text-[10px] text-gray-500 mt-0.5">Creation date</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-purple-700 mb-1">Vendor Name</label>
-            {order ? (
-              <div className="text-sm font-medium">{order.vendor_name || '-'}</div>
-            ) : (
-              <Input value={vendorName} placeholder="Enter vendor" onChange={e=>setVendorName(e.target.value)} />
-            )}
-            <div className="text-[10px] text-gray-500 mt-0.5">Free text (later: link to contacts)</div>
+            <label className="block text-xs font-semibold text-purple-700 mb-1">Vendor</label>
+            {(!order || order.status==='draft') ? (
+              <select
+                aria-label="Vendor"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                value={vendorId || ''}
+                onChange={e => {
+                  const val = e.target.value || '';
+                  setVendorId(val || null);
+                  const sel = vendorOptions.find(o => o.value === val);
+                  setVendorName(sel?.label || '');
+                }}
+              >
+                <option value="">Select vendor</option>
+                {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            ) : <div className="text-sm font-medium">{vendorName || '-'}</div>}
+            <div className="text-[10px] text-gray-500 mt-0.5">Linked to Contacts (vendor/both)</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-purple-700 mb-1">Reference</label>
@@ -154,11 +208,21 @@ export default function PurchaseOrderForm() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600">Qty</label>
-              <Input type="number" value={newLine.quantity} onChange={e=>setNewLine(n=>({...n, quantity: Number(e.target.value)}))} />
+              <Input type="number" value={newLine.quantity} onChange={e=>{
+                let q = Number(e.target.value);
+                if (isNaN(q)) q = 1;
+                if (q < 1) q = 1;
+                if (q > 10) q = 10;
+                setNewLine(n=>({...n, quantity: q}));
+              }} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600">Unit Price</label>
-              <Input type="number" value={newLine.unit_price} onChange={e=>setNewLine(n=>({...n, unit_price: Number(e.target.value)}))} />
+              <Input type="number" value={newLine.unit_price} onChange={e=>{
+                let v = Number(e.target.value);
+                if (isNaN(v) || v < 0) v = 0;
+                setNewLine(n=>({...n, unit_price: v}));
+              }} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600">Tax %</label>
@@ -167,6 +231,7 @@ export default function PurchaseOrderForm() {
             <div className="flex items-center pt-5">
               <Button type="button" onClick={addLocalLine}>Add Line</Button>
             </div>
+          {/* (Removed duplicate quantity input) */}
           </div>
         )}
         <Table columns={columns as any} data={displayLines as any} isLoading={false} />

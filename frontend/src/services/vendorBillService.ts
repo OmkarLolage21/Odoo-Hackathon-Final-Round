@@ -30,3 +30,7 @@ export async function listVendorBills(role?: string) {
 export async function getVendorBill(id: string, role?: string) {
   return api.get(`${BASE_PATH}/${id}`, { headers: roleHeader(role) });
 }
+
+export async function createBillFromPurchaseOrder(purchaseOrderId: string, role?: string) {
+  return api.post(`${BASE_PATH}/from-purchase-order/${purchaseOrderId}`, null, { headers: roleHeader(role) });
+}
